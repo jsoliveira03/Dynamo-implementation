@@ -1,10 +1,9 @@
-# SDLE Second Assignment
+# SDLE First Assignment
 
-SDLE Second Assignment of group T&lt;m&gt;&lt;n&gt;G&lt;p&gt;&lt;q&gt;.
+SDLE First Assignment of group T04G13.
 
 Group members:
 
-1. &lt;first name&gt; &lt;family name&gt; (&lt;email address&gt;)
-2. &lt;first name&gt; &lt;family name&gt; (&lt;email address&gt;)
-3. &lt;first name&gt; &lt;family name&gt; (&lt;email address&gt;)
-4. &lt;first name&gt; &lt;family name&gt; (&lt;email address&gt;)
+1. João Sousa (up202106996@up.pt)
+2. José Oliveira (up202108764@up.pt)
+3. Alexandre Correia (up202007042@up.pt)
