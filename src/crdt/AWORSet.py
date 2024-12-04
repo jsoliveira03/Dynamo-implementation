@@ -1,6 +1,6 @@
 import uuid
 import time
-from PN_Counter import PNCounter
+from crdt.PN_Counter import PNCounter
 
 
 class AWORSet:

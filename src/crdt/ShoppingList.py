@@ -1,5 +1,5 @@
 import uuid
-from AWORSet import AWORSet
+from crdt.AWORSet import AWORSet
 
 class ShoppingList:
     def __init__(self, owner):
