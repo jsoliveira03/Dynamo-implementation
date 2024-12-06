@@ -1,0 +1,15 @@
+{
+    "83eb08dc-a0c2-4b74-8fa5-0f31bf154d95": {
+        "name": "mylist",
+        "deleted": false,
+        "items": [
+            {
+                "uuid": "85b23e58-c9f4-44cd-b1e3-633494d9df7f",
+                "product_name": "ll",
+                "product_quantity": 3,
+                "deleted": false,
+                "bought": false
+            }
+        ]
+    }
+}

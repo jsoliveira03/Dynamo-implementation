@@ -1,120 +1,94 @@
 import zmq
 import threading
 import json
-from crdt.ShoppingList import ShoppingList
 import os
-import time
-import sys
+from crdt.ShoppingList import ShoppingList
 
 CONFIG = {
-    "update_interval": 10,  # seconds
-    "neighbor_update_interval": 10,  # seconds
-    "zmq_port": 9000,  # Base port for ZeroMQ communication
-    "json_folder": "./data/",  # Folder for storing JSON files
+    "json_folder": "./data/",
+    "port": 5500
 }
 
 class Server:
-    def __init__(self, port):
-        self.port = port  # Dynamic port passed by client
+    def __init__(self, port=CONFIG["port"]):
+        self.port = port
         self.shopping_list = ShoppingList(owner=port)
-        self.json_path = f"{CONFIG['json_folder']}{port}.json"
+        self.json_path = f"{CONFIG['json_folder']}lists.json"
         self.lock = threading.Lock()
         self.context = zmq.Context()
-        self.sock = self.context.socket(zmq.REP)  # REP socket for request-reply pattern
-        self.sock.bind(f"tcp://*:{self.port}")  # Dynamically bind to the client-specified port
+        self.socket = self.context.socket(zmq.REP)
+        self.socket.bind(f"tcp://*:{self.port}")
         self._load_data()
 
     def _load_data(self):
-        """Load the shopping list state from a JSON file."""
         if os.path.exists(self.json_path):
             with open(self.json_path, "r") as file:
                 data = json.load(file)
-                self.shopping_list.merge(data)  # Merge the saved state into the current ShoppingList
+                self.shopping_list.merge(data)
         else:
-            # Ensure the folder exists
             os.makedirs(CONFIG['json_folder'], exist_ok=True)
 
     def _save_data(self):
-        """Save the shopping list state to a JSON file."""
-        with open(self.json_path, "w") as file:
-            json.dump(self.shopping_list.info(), file)
+        if self.shopping_list.changed():
+            with open(self.json_path, "w") as file:
+                json.dump(self.shopping_list.info(), file, indent=4)
 
-    def handle_request(self, request):
-        """Handle incoming requests from clients."""
-        request = json.loads(request)
-        action = request.get("action")
-        response = {"status": "ok"}
-
+    def handle_request(self, message):
         try:
-            if request.get("message") == "Hello":
-                response["message"] = "Hello World"
-            if action == "create_list":
-                name = request["name"]
-                list_id = self.shopping_list.create_list(name)
-                response["list_id"] = list_id
+            request = json.loads(message)
+            action = request.get("action")
+            data = request.get("data", {})
+            response = {"success": True}
 
-            elif action == "delete_list":
-                list_id = request["list_id"]
-                self.shopping_list.delete_list(list_id)
+            if action == "createList":
+                list_id = self.shopping_list.create_list(data["name"])
+                response["listId"] = list_id
 
-            elif action == "create_item":
-                list_id = request["list_id"]
-                item_name = request["item_name"]
-                quantity = request.get("quantity", 1)
-                self.shopping_list.create_item(list_id, item_name, quantity)
-
-            elif action == "delete_item":
-                list_id = request["list_id"]
-                item_name = request["item_name"]
-                self.shopping_list.delete_item(list_id, item_name)
-
-            elif action == "update_quantity":
-                list_id = request["list_id"]
-                item_name = request["item_name"]
-                increment = request.get("increment", 0)
-                decrement = request.get("decrement", 0)
-                self.shopping_list.update_quantity(list_id, item_name, increment, decrement)
-
-            elif action == "get_list":
-                list_id = request["list_id"]
+            elif action == "joinList":
+                list_id = data["listId"]
                 response["list"] = self.shopping_list.get_list(list_id)
 
-            elif action == "get_all_lists":
+            elif action == "deleteList":
+                list_id = data["listId"]
+                self.shopping_list.delete_list(list_id)
+
+            elif action == "addItem":
+                list_id = data["listId"]
+                item = data["item"]
+                self.shopping_list.create_item(list_id, item["name"], item["quantity"])
+
+            elif action == "removeItem":
+                list_id = data["listId"]
+                item_name = data["itemName"]
+                self.shopping_list.delete_item(list_id, item_name)
+
+            elif action == "updateItem":
+                list_id = data["listId"]
+                item_name = data["itemName"]
+                self.shopping_list.update_quantity(
+                    list_id, 
+                    item_name,
+                    increment=data["increment"],
+                    decrement=data["decrement"]
+                )
+
+            elif action == "syncLists":
                 response["lists"] = self.shopping_list.info()
 
-            elif action == "merge":
-                remote_data = request["data"]
-                self.shopping_list.merge(remote_data)
+            self._save_data()
+            return json.dumps(response)
 
         except Exception as e:
-            response = {"status": "error", "message": str(e)}
-
-        return json.dumps(response)
-
-    def listen(self):
-        """Start listening for incoming ZeroMQ requests."""
-        print(f"Server {self.port} started and listening on port {self.port}")
-        while True:
-            request = self.sock.recv().decode("utf-8")
-            with self.lock:
-                response = self.handle_request(request)
-                self._save_data()  # Save the state after handling the request
-            self.sock.send(response.encode("utf-8"))
+            return json.dumps({"success": False, "error": str(e)})
 
     def run(self):
-        """Start the server."""
-        listener_thread = threading.Thread(target=self.listen)
-        listener_thread.start()
-        listener_thread.join()
+        print(f"Server listening on port {self.port}")
+        while True:
+            message = self.socket.recv_string()
+            with self.lock:
+                response = self.handle_request(message)
+            self.socket.send_string(response)
 
-
-# Run the server
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        print("Please provide a port number to bind the server.")
-        sys.exit(1)
-
-    port = int(sys.argv[1])  # The port should be passed from the client
-    server = Server(port)
+    server = Server()
     server.run()

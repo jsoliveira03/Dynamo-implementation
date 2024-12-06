@@ -1,0 +1,14 @@
+{
+    "lists": {
+        "83eb08dc-a0c2-4b74-8fa5-0f31bf154d95": {
+            "name": "mylist",
+            "deleted": false,
+            "items": [
+                {
+                    "name": "ll",
+                    "quantity": 3
+                }
+            ]
+        }
+    }
+}
