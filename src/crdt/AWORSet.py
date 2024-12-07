@@ -2,7 +2,6 @@ import uuid
 import time
 from crdt.PN_Counter import PNCounter
 
-
 class AWORSet:
     def __init__(self, owner):
         self.owner = owner
@@ -10,21 +9,23 @@ class AWORSet:
         self.adds = {}   # Tracks added items (with timestamps)
         self.removes = {}  # Tracks removed items (tombstones)
 
-    def add(self, product_name, quantity):
+    def add(self, product_name, quantity, product_uuid=None):
         """Add a product to the set."""
-        product_uuid = str(uuid.uuid4())  # Generate a unique UUID for the product
+        if product_uuid is None:
+            product_uuid = str(uuid.uuid4())  # Generate a unique UUID if none provided
         timestamp = time.time()  # Use timestamp for versioning
 
         # Add product details with a PN-Counter for quantity
-        self.items[product_uuid] = {
-            'product_name': product_name,
-            'product_quantity': PNCounter(),
-            'deleted': False,
-            'bought': False,
-        }
+        if product_uuid not in self.items:
+            self.items[product_uuid] = {
+                'product_name': product_name,
+                'product_quantity': PNCounter(),
+                'deleted': False,
+                'bought': False,
+            }
         self.items[product_uuid]['product_quantity'].increment(quantity)
         self.adds[product_uuid] = timestamp
-        self.removes.pop(product_uuid, None) 
+        self.removes.pop(product_uuid, None)  # Ensure it's not marked as removed
         print(f"Added {product_name} with quantity {quantity}.")
 
     def remove(self, product_uuid):
@@ -78,7 +79,8 @@ class AWORSet:
                     self.remove(product_uuid)
                 # If the remove tombstone is for a bought item
                 elif remove_info['type'] == 'bought' and not self.items[product_uuid]['bought']:
-                    self.buy(product_uuid)
+                    if not self.items[product_uuid]['deleted']:  # Ensure item isn't already deleted
+                        self.buy(product_uuid)
 
         # Merge quantities for items
         for product_uuid, item in self.items.items():
@@ -108,4 +110,3 @@ class AWORSet:
             if item['product_name'] == product_name:
                 return product_uuid
         return None
-

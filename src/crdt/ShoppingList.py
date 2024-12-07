@@ -104,30 +104,32 @@ class ShoppingList:
     def merge(self, remote_data):
         """Merge this ShoppingList instance with a remote replica."""
         for list_id, remote_list in remote_data.items():
-            # Validate the structure of the remote list
-            name = remote_list.get("name", "Unnamed List")
-            deleted = remote_list.get("deleted", False)
-            items = remote_list.get("items", {})
-
             if list_id not in self.lists:
-                # Add a new list if it doesn't exist locally
+                # Create a new list locally
                 self.lists[list_id] = {
-                    "name": name,
-                    "deleted": deleted,
-                    "items": AWORSet(owner=self.owner)
+                    "name": remote_list["name"],
+                    "deleted": remote_list["deleted"],
+                    "items": AWORSet(owner=self.owner),
                 }
 
-            # Merge the items using AWORSet
-            local_list = self.lists[list_id]
-            local_list["name"] = name
-            local_list["deleted"] = deleted
-            for item_uuid, item_data in items.items():
-                item_name = item_data["name"]
-                increments = item_data["counter"].get("increments", 0)
-                decrements = item_data["counter"].get("decrements", 0)
-                local_list["items"].add(item_name, increments - decrements)
+            # Update list properties
+            self.lists[list_id]["name"] = remote_list["name"]
+            self.lists[list_id]["deleted"] = remote_list["deleted"]
+
+            # Wrap remote items in an AWORSet before merging
+            remote_aworset = AWORSet(owner=self.owner)
+            for item in remote_list["items"]:
+                remote_aworset.add(
+                    product_name=item["product_name"],
+                    quantity=item["product_quantity"],
+                    product_uuid=item["uuid"]
+                )
+
+            # Merge items using AWORSet
+            self.lists[list_id]["items"].merge(remote_aworset)
 
         self.has_change = True
+
 
 
     def info(self):
