@@ -1,44 +1,117 @@
 import zmq
 import json
 import os
+import threading
+import time
 from crdt.ShoppingList import ShoppingList
 
 CONFIG = {
     "json_file": "./client_data.json",
     "server_port": 5500,
+    "sync_interval": 15,
 }
 
-def load_local_data(file_path):
-    """Load local shopping list data from file."""
-    if os.path.exists(file_path):
-        with open(file_path, "r") as file:
-            return json.load(file)
-    return {"lists": {}}
+class ShoppingListClient:
+    def __init__(self):
+        self.shopping_list = ShoppingList(owner="client")
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.REQ)
+        self.socket.connect(f"tcp://localhost:{CONFIG['server_port']}")
+        self.sync_lock = threading.Lock()
+        self.running = True
+        
+        # Load initial data
+        self._load_local_data()
+        
+        # Start sync thread
+        self.sync_thread = threading.Thread(target=self._auto_sync, daemon=True)
+        self.sync_thread.start()
 
-def save_local_data(file_path, data):
-    """Save shopping list data to a JSON file."""
-    with open(file_path, "w") as file:
-        json.dump(data, file, indent=4)
+    def _load_local_data(self):
+        """Load local shopping list data from file."""
+        if os.path.exists(CONFIG["json_file"]):
+            with open(CONFIG["json_file"], "r") as file:
+                data = json.load(file)
+                self.shopping_list.merge(data)
 
-def send_request(socket, action, data):
-    """Send a request to the server and receive a response."""
-    message = {"action": action, "data": data}
-    socket.send_string(json.dumps(message))
-    return json.loads(socket.recv_string())
+    def _save_local_data(self):
+        """Save shopping list data to a JSON file."""
+        with open(CONFIG["json_file"], "w") as file:
+            json.dump(self.shopping_list.info(), file, indent=4)
+
+    def _send_request(self, action, data):
+        """Send a request to the server and receive a response."""
+        message = {"action": action, "data": data}
+        try:
+            self.socket.send_string(json.dumps(message))
+            return json.loads(self.socket.recv_string())
+        except zmq.error.Again:
+            print("Server not responding")
+            return {"success": False, "error": "Server not responding"}
+        except Exception as e:
+            print(f"Error communicating with server: {e}")
+            return {"success": False, "error": str(e)}
+
+    def _auto_sync(self):
+        """Background thread for automatic synchronization."""
+        while self.running:
+            time.sleep(CONFIG["sync_interval"])
+            self.sync_with_server()
+
+    def sync_with_server(self):
+        """Synchronize with server and handle conflicts."""
+        with self.sync_lock:
+            try:
+                response = self._send_request("syncLists", self.shopping_list.info())
+                if response.get("success"):
+                    self.shopping_list.merge(response["lists"])
+                    self._save_local_data()
+                    #print("\nSynced with server successfully.")
+                else:
+                    print(f"\nFailed to sync with server: {response.get('error')}")
+            except Exception as e:
+                print(f"\nSync error: {e}")
+
+    def create_list(self, name):
+        """Create a new shopping list."""
+        list_id = self.shopping_list.create_list(name)
+        self._save_local_data()
+        return list_id
+
+    def delete_list(self, list_id):
+        """Delete a shopping list."""
+        self.shopping_list.delete_list(list_id)
+        self._save_local_data()
+
+    def create_item(self, list_id, item_name, quantity):
+        """Add an item to a shopping list."""
+        self.shopping_list.create_item(list_id, item_name, quantity)
+        self._save_local_data()
+
+    def delete_item(self, list_id, item_name):
+        """Remove an item from a shopping list."""
+        self.shopping_list.delete_item(list_id, item_name)
+        self._save_local_data()
+
+    def update_quantity(self, list_id, item_name, increment, decrement):
+        """Update the quantity of an item."""
+        self.shopping_list.update_quantity(list_id, item_name, increment, decrement)
+        self._save_local_data()
+
+    def get_lists(self):
+        """Get all shopping lists."""
+        return self.shopping_list.info()
+
+    def shutdown(self):
+        """Clean shutdown of the client."""
+        self.running = False
+        self.sync_thread.join()
+        self.socket.close()
+        self.context.term()
 
 if __name__ == "__main__":
-    # Initialize ShoppingList
-    shopping_list = ShoppingList(owner="client")
-
-    # Load local data into the ShoppingList
-    local_data = load_local_data(CONFIG["json_file"])
-    shopping_list.merge(local_data)
-
-    # Initialize ZMQ socket for server communication
-    context = zmq.Context()
-    socket = context.socket(zmq.REQ)
-    socket.connect(f"tcp://localhost:{CONFIG['server_port']}")
-
+    client = ShoppingListClient()
+    
     while True:
         print("\nOptions:")
         print("1. Create List")
@@ -47,66 +120,56 @@ if __name__ == "__main__":
         print("4. Remove Item")
         print("5. Update Item Quantity")
         print("6. View Lists")
-        print("7. Sync with Server")
+        print("7. Force Sync with Server")
         print("8. Exit")
 
         choice = input("Enter your choice: ")
         try:
-            if choice == "1":  # Create List
+            if choice == "1":
                 name = input("Enter list name: ")
-                list_id = shopping_list.create_list(name)
-                save_local_data(CONFIG["json_file"], shopping_list.info())
+                list_id = client.create_list(name)
                 print(f"List '{name}' created with ID: {list_id}")
 
-            elif choice == "2":  # Delete List
+            elif choice == "2":
                 list_id = input("Enter list ID to delete: ")
-                shopping_list.delete_list(list_id)
-                save_local_data(CONFIG["json_file"], shopping_list.info())
+                client.delete_list(list_id)
                 print(f"List '{list_id}' deleted.")
 
-            elif choice == "3":  # Add Item
+            elif choice == "3":
                 list_id = input("Enter list ID: ")
                 item_name = input("Enter item name: ")
                 quantity = int(input("Enter quantity: "))
-                shopping_list.create_item(list_id, item_name, quantity)
-                save_local_data(CONFIG["json_file"], shopping_list.info())
+                client.create_item(list_id, item_name, quantity)
                 print(f"Added {quantity} of '{item_name}' to list {list_id}.")
 
-            elif choice == "4":  # Remove Item
+            elif choice == "4":
                 list_id = input("Enter list ID: ")
                 item_name = input("Enter item name: ")
-                shopping_list.delete_item(list_id, item_name)
-                save_local_data(CONFIG["json_file"], shopping_list.info())
+                client.delete_item(list_id, item_name)
                 print(f"Removed '{item_name}' from list {list_id}.")
 
-            elif choice == "5":  # Update Item Quantity
+            elif choice == "5":
                 list_id = input("Enter list ID: ")
                 item_name = input("Enter item name: ")
                 increment = int(input("Enter quantity to increment: "))
                 decrement = int(input("Enter quantity to decrement: "))
-                shopping_list.update_quantity(list_id, item_name, increment, decrement)
-                save_local_data(CONFIG["json_file"], shopping_list.info())
+                client.update_quantity(list_id, item_name, increment, decrement)
                 print(f"Updated quantity of '{item_name}' in list {list_id}.")
 
-            elif choice == "6":  # View Lists
-                lists = shopping_list.info()
+            elif choice == "6":
+                lists = client.get_lists()
                 print("\nCurrent Shopping Lists:")
                 for list_id, details in lists.items():
                     print(f"List ID: {list_id}, Name: {details['name']}")
                     for item in details["items"]:
                         print(f"  - {item['name']} (Quantity: {item['quantity']})")
 
-            elif choice == "7":  # Sync with Server
-                server_response = send_request(socket, "syncLists", shopping_list.info())
-                if server_response.get("success"):
-                    shopping_list.merge(server_response["lists"])
-                    save_local_data(CONFIG["json_file"], shopping_list.info())
-                    print("Synced with server successfully.")
-                else:
-                    print(f"Failed to sync with server: {server_response.get('error')}")
+            elif choice == "7":
+                client.sync_with_server()
 
-            elif choice == "8":  # Exit
+            elif choice == "8":
                 print("Exiting.")
+                client.shutdown()
                 break
 
             else:
