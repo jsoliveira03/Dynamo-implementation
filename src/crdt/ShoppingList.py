@@ -34,6 +34,29 @@ class ShoppingList:
         self.lists[list_id]["items"].add(item_name, quantity)
         self.has_change = True
 
+    def load(self, data):
+        """Load shopping list data from a JSON-like structure."""
+        for list_id, list_data in data.items():
+            # Initialize the list with name and deleted status
+            self.lists[list_id] = {
+                "name": list_data.get("name", "Unnamed List"),
+                "deleted": list_data.get("deleted", False),
+                "items": AWORSet(owner=self.owner)  # Create AWORSet for items
+            }
+            
+            # Load items into the AWORSet
+            items = list_data.get("items", {})
+            for item_uuid, item_data in items.items():
+                name = item_data["name"]
+                counter_data = item_data["counter"]
+                increments = counter_data.get("increments", 0)
+                decrements = counter_data.get("decrements", 0)
+                
+                # Add the item to the AWORSet with the proper PN-Counter values
+                self.lists[list_id]["items"].add(name, increments - decrements)
+
+        self.has_change = True
+
     def delete_item(self, list_id, item_name):
         """Mark an item as deleted."""
         if list_id not in self.lists or self.lists[list_id]["deleted"]:
@@ -81,35 +104,31 @@ class ShoppingList:
     def merge(self, remote_data):
         """Merge this ShoppingList instance with a remote replica."""
         for list_id, remote_list in remote_data.items():
-            if list_id not in self.lists:
-                # Add new list
-                self.lists[list_id] = {
-                    "name": remote_list["name"],
-                    "deleted": remote_list["deleted"],
-                    "items": AWORSet(owner=self.owner)  # Wrap the items in AWORSet
-                }
-                # Now merge the items into AWORSet
-                for item_name, item in remote_list["items"].items():
-                    self.lists[list_id]["items"].add(item_name, item["counter"].get_value())
-            else:
-                # Merge lists
-                local_list = self.lists[list_id]
-                if remote_list["deleted"] and not local_list["deleted"]:
-                    self.delete_list(list_id)
-                elif not remote_list["deleted"] and local_list["deleted"]:
-                    continue
+            # Validate the structure of the remote list
+            name = remote_list.get("name", "Unnamed List")
+            deleted = remote_list.get("deleted", False)
+            items = remote_list.get("items", {})
 
-                # Merge items using AWORSet
-                # Ensure items are merged correctly by passing AWORSet instances
-                local_list["items"].merge(AWORSet(owner=self.owner))  # Wrap the remote items in AWORSet
-                for item_name, remote_item in remote_list["items"].items():
-                    if item_name not in local_list["items"].items:
-                        local_list["items"].add(item_name, remote_item["counter"].get_value())
-                    else:
-                        local_item = local_list["items"].find_uuid_by_name(item_name)
-                        local_item["product_quantity"].merge(remote_item["counter"])
+            if list_id not in self.lists:
+                # Add a new list if it doesn't exist locally
+                self.lists[list_id] = {
+                    "name": name,
+                    "deleted": deleted,
+                    "items": AWORSet(owner=self.owner)
+                }
+
+            # Merge the items using AWORSet
+            local_list = self.lists[list_id]
+            local_list["name"] = name
+            local_list["deleted"] = deleted
+            for item_uuid, item_data in items.items():
+                item_name = item_data["name"]
+                increments = item_data["counter"].get("increments", 0)
+                decrements = item_data["counter"].get("decrements", 0)
+                local_list["items"].add(item_name, increments - decrements)
 
         self.has_change = True
+
 
     def info(self):
         """Return all lists and their items in a JSON-like format."""

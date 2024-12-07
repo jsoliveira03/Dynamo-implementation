@@ -1,14 +1,20 @@
 {
     "lists": {
-        "83eb08dc-a0c2-4b74-8fa5-0f31bf154d95": {
-            "name": "mylist",
-            "deleted": false,
-            "items": [
-                {
-                    "name": "ll",
-                    "quantity": 3
-                }
-            ]
-        }
+        "name": "Unnamed List",
+        "deleted": false,
+        "items": []
+    },
+    "5d61362c-cf74-45ad-be89-6757dee36f00": {
+        "name": "hello",
+        "deleted": false,
+        "items": [
+            {
+                "uuid": "3c74135d-bfb1-4119-b7bf-460d41d54f54",
+                "product_name": "banana",
+                "product_quantity": 100,
+                "deleted": false,
+                "bought": false
+            }
+        ]
     }
 }
