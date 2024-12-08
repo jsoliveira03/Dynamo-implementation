@@ -21,6 +21,7 @@ class ShoppingList:
     def delete_list(self, list_id):
         """Mark a shopping list as deleted."""
         if list_id in self.lists:
+            print("TRUE for deleted")
             self.lists[list_id]["deleted"] = True
             self.has_change = True
         else:
@@ -95,6 +96,9 @@ class ShoppingList:
             raise ValueError("List not found.")
 
         shopping_list = self.lists[list_id]
+        if shopping_list["deleted"]:
+            return None
+
         return {
             "name": shopping_list["name"],
             "deleted": shopping_list["deleted"],
@@ -111,22 +115,24 @@ class ShoppingList:
                     "deleted": remote_list["deleted"],
                     "items": AWORSet(owner=self.owner),
                 }
+            
+            local_list = self.lists[list_id]
+            if not local_list["deleted"] or remote_list["deleted"]:
+                local_list["name"] = remote_list["name"]
+                local_list["deleted"] = remote_list["deleted"]
 
-            # Update list properties
-            self.lists[list_id]["name"] = remote_list["name"]
-            self.lists[list_id]["deleted"] = remote_list["deleted"]
-
-            # Wrap remote items in an AWORSet before merging
-            remote_aworset = AWORSet(owner=self.owner)
-            for item in remote_list["items"]:
-                remote_aworset.add(
-                    product_name=item["product_name"],
-                    quantity=item["product_quantity"],
-                    product_uuid=item["uuid"]
-                )
-
-            # Merge items using AWORSet
-            self.lists[list_id]["items"].merge(remote_aworset)
+                # If list is not deleted, merge items
+                if not local_list["deleted"]:
+                    remote_aworset = AWORSet(owner=self.owner)
+                    for item in remote_list["items"]:
+                        remote_aworset.add(
+                            product_name=item["product_name"],
+                            quantity=item["product_quantity"],
+                            product_uuid=item["uuid"]
+                        )
+                    
+                    # Merge items using AWORSet - deleted items will be removed locally
+                    local_list["items"].merge(remote_aworset)
 
         self.has_change = True
 
@@ -141,6 +147,7 @@ class ShoppingList:
                 "items": lst["items"].get_items()
             }
             for list_id, lst in self.lists.items()
+            if not lst["deleted"]
         }
 
     def changed(self):

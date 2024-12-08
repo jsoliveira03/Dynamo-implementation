@@ -120,8 +120,7 @@ if __name__ == "__main__":
         print("4. Remove Item")
         print("5. Update Item Quantity")
         print("6. View Lists")
-        print("7. Force Sync with Server")
-        print("8. Exit")
+        print("7. Exit")
 
         choice = input("Enter your choice: ")
         try:
@@ -162,10 +161,7 @@ if __name__ == "__main__":
                 for list_id, details in lists.items():
                     print(f"List ID: {list_id}, Name: {details['name']}")
                     for item in details["items"]:
-                        print(f"  - {item['name']} (Quantity: {item['quantity']})")
-
-            elif choice == "7":
-                client.sync_with_server()
+                        print(f"  - {item['product_name']} (Quantity: {item['product_quantity']})")
 
             elif choice == "8":
                 print("Exiting.")

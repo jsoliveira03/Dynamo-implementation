@@ -15,38 +15,52 @@ class AWORSet:
             product_uuid = str(uuid.uuid4())  # Generate a unique UUID if none provided
         timestamp = time.time()  # Use timestamp for versioning
 
-        # Add product details with a PN-Counter for quantity
-        if product_uuid not in self.items:
-            self.items[product_uuid] = {
-                'product_name': product_name,
-                'product_quantity': PNCounter(),
-                'deleted': False,
-                'bought': False,
-            }
-        self.items[product_uuid]['product_quantity'].increment(quantity)
-        self.adds[product_uuid] = timestamp
-        self.removes.pop(product_uuid, None)  # Ensure it's not marked as removed
-        print(f"Added {product_name} with quantity {quantity}.")
+        if product_uuid not in self.removes or timestamp > self.removes[product_uuid].get('timestamp', 0):
+            if product_uuid not in self.items:
+                self.items[product_uuid] = {
+                    'product_name': product_name,
+                    'product_quantity': PNCounter(),
+                    'deleted': False,
+                    'bought': False,
+                    'timestamp': timestamp  
+                }
+            self.items[product_uuid]['product_quantity'].increment(quantity)
+            self.adds[product_uuid] = timestamp
+            self.removes.pop(product_uuid, None)  
 
     def remove(self, product_uuid):
-        """Mark a product as deleted (tombstone)."""
+        """Mark a product as deleted and remove it locally."""
         if product_uuid in self.items:
             timestamp = time.time()
-            self.removes[product_uuid] = {'timestamp': timestamp, 'type': 'deleted'}
-            self.items[product_uuid]['deleted'] = True
-            print(f"Product {self.items[product_uuid]['product_name']} marked as deleted.")
+            self.removes[product_uuid] = {
+                'timestamp': timestamp,
+                'type': 'deleted',
+                'by': self.owner
+            }
+            if self.items[product_uuid]:
+                item_data = self.items[product_uuid].copy()
+                item_data['deleted'] = True
+                item_data['timestamp'] = timestamp
+                self.items[product_uuid] = item_data
+            del self.items[product_uuid]
+            print(f"Product removed locally.")
         else:
             print("Item not found to remove.")
 
     def buy(self, product_uuid):
         """Mark a product as bought."""
-        if product_uuid in self.items:
+        if product_uuid in self.items and not self.items[product_uuid]['deleted']:
             timestamp = time.time()
-            self.removes[product_uuid] = {'timestamp': timestamp, 'type': 'bought'}
+            self.removes[product_uuid] = {
+                'timestamp': timestamp,
+                'type': 'bought',
+                'by': self.owner
+            }
             self.items[product_uuid]['bought'] = True
+            self.items[product_uuid]['timestamp'] = timestamp
             print(f"Product {self.items[product_uuid]['product_name']} marked as bought.")
         else:
-            print("Item not found to mark as bought.")
+            print("Item not found or already deleted.")
 
     def update_quantity(self, product_uuid, increment=0, decrement=0):
         """Update the quantity of an item using its PN-Counter."""
@@ -59,46 +73,62 @@ class AWORSet:
                 counter.increment(increment)
             if decrement > 0:
                 counter.decrement(decrement)
+            self.items[product_uuid]['timestamp'] = time.time()
             print(f"Updated quantity for {self.items[product_uuid]['product_name']}: {counter.get_value()}")
         else:
             raise ValueError("Item not found to update.")
 
     def merge(self, other):
         """Merge another AWORSet into this one."""
-        # Merge adds: Take the most recent addition (based on timestamp)
-        for product_uuid, timestamp in other.adds.items():
-            if product_uuid not in self.adds or timestamp > self.adds[product_uuid]:
-                self.adds[product_uuid] = timestamp
-                self.items[product_uuid] = other.items[product_uuid]
-
-        # Merge removes (ensure to respect tombstones)
         for product_uuid, remove_info in other.removes.items():
-            if product_uuid in self.items:
-                # If the remove tombstone is for a deletion
-                if remove_info['type'] == 'deleted' and not self.items[product_uuid]['deleted']:
-                    self.remove(product_uuid)
-                # If the remove tombstone is for a bought item
-                elif remove_info['type'] == 'bought' and not self.items[product_uuid]['bought']:
-                    if not self.items[product_uuid]['deleted']:  # Ensure item isn't already deleted
-                        self.buy(product_uuid)
+            if (product_uuid not in self.removes or 
+                remove_info['timestamp'] > self.removes[product_uuid]['timestamp']):
+                self.removes[product_uuid] = remove_info.copy()
+                if product_uuid in self.items:
+                    if self.owner != "client":  
+                        self.items[product_uuid]['deleted'] = True
+                        self.items[product_uuid]['timestamp'] = remove_info['timestamp']
+                    else:  
+                        del self.items[product_uuid]
 
-        # Merge quantities for items
-        for product_uuid, item in self.items.items():
+        for product_uuid, timestamp in other.adds.items():
+            if (product_uuid not in self.items or 
+                (product_uuid in other.items and 
+                 other.items[product_uuid]['timestamp'] > self.items[product_uuid].get('timestamp', 0))):
+                
+                if (product_uuid not in self.removes or 
+                    self.removes[product_uuid]['type'] != 'deleted' or 
+                    self.owner != "client"):
+                    self.adds[product_uuid] = timestamp
+                    if product_uuid in other.items:
+                        self.items[product_uuid] = other.items[product_uuid].copy()
+                        if self.owner != "client" and product_uuid in self.removes:
+                            self.items[product_uuid]['deleted'] = True
+
+        for product_uuid, item in list(self.items.items()):
             if product_uuid in other.items:
-                item['product_quantity'].merge(other.items[product_uuid]['product_quantity'])
+                if self.owner == "client" and product_uuid in self.removes:
+                    del self.items[product_uuid]
+                else:
+                    item['product_quantity'].merge(other.items[product_uuid]['product_quantity'])
+                    if self.owner != "client" and product_uuid in self.removes:
+                        item['deleted'] = True
 
     def get_items(self):
-        """Get items in the set, excluding deleted ones."""
-        return [
-            {
+        """Get items in the set."""
+        items_list = []
+        for product_uuid, item in self.items.items():
+            is_deleted = (product_uuid in self.removes and 
+                         self.removes[product_uuid]['type'] == 'deleted')
+            items_list.append({
                 "uuid": product_uuid,
                 "product_name": item['product_name'],
                 "product_quantity": item['product_quantity'].get_value(),
-                "deleted": item['deleted'],
-                "bought": item['bought']
-            }
-            for product_uuid, item in self.items.items() if not item['deleted']
-        ]
+                "deleted": is_deleted,
+                "bought": item.get('bought', False),
+                "timestamp": item['timestamp']
+            })
+        return items_list
 
     def __str__(self):
         """Return string representation of AWORSet."""
@@ -107,6 +137,6 @@ class AWORSet:
     def find_uuid_by_name(self, product_name):
         """Find the UUID of an item by its name."""
         for product_uuid, item in self.items.items():
-            if item['product_name'] == product_name:
+            if item['product_name'] == product_name and not item['deleted']:
                 return product_uuid
         return None
