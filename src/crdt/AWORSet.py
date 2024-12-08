@@ -54,20 +54,16 @@ class AWORSet:
             # Store bought info
             self.bought[product_uuid] = {
                 'timestamp': timestamp,
+                'type': 'bought',
                 'by': self.owner
             }
             
-            # Set quantity to 0 by calculating current quantity and decrementing it
-            current_quantity = self.items[product_uuid]['product_quantity'].get_value()
-            self.items[product_uuid]['product_quantity'].decrement(current_quantity)
-            
-            # Mark as bought
-            self.items[product_uuid]['bought'] = True
-            self.items[product_uuid]['timestamp'] = timestamp
-            
-            # If this is a client, remove the item locally
-            if self.owner == "client":
-                del self.items[product_uuid]
+            if self.items[product_uuid]:
+                item_data = self.items[product_uuid].copy()
+                item_data['bought'] = True
+                item_data['product_quantity'] = PNCounter()
+                item_data['timestamp'] = timestamp
+                self.items[product_uuid] = item_data
             
             print(f"Product marked as bought.")
             return True
@@ -138,7 +134,6 @@ class AWORSet:
 
 
 
-
     def get_items(self):
         """Get items in the set."""
         items_list = []
@@ -148,7 +143,7 @@ class AWORSet:
                 "product_name": item['product_name'],
                 "product_quantity": item['product_quantity'].get_value(),
                 "deleted": item['deleted'],
-                "bought": product_uuid in self.bought,
+                "bought": item['bought'],
                 "timestamp": item['timestamp']
             })
         return items_list
