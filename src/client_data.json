@@ -1,21 +1,7 @@
 {
-    "fba98eb9-881e-41d1-a777-06b0314d8f4e": {
-        "name": "akdk",
-        "deleted": false,
-        "items": []
-    },
-    "0cdc03e2-0501-4df4-8226-98122f41268a": {
+    "4796a849-79ee-4ea2-8485-04d5e12affdc": {
         "name": "aa",
         "deleted": false,
-        "items": [
-            {
-                "uuid": "6a940fbf-79f4-4582-ade5-9b0f3a2b3332",
-                "product_name": "bnanan",
-                "product_quantity": 1000,
-                "deleted": false,
-                "bought": false,
-                "timestamp": 1733616195.643049
-            }
-        ]
+        "items": []
     }
 }

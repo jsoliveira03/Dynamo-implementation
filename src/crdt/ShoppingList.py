@@ -17,6 +17,20 @@ class ShoppingList:
         }
         self.has_change = True
         return list_id
+    
+    def buy_item(self, list_id, item_name):
+        """Mark an item as bought."""
+        if list_id not in self.lists or self.lists[list_id]["deleted"]:
+            raise ValueError("List not found or deleted.")
+
+        item_uuid = self.lists[list_id]["items"].find_uuid_by_name(item_name)
+        if item_uuid:
+            success = self.lists[list_id]["items"].buy_item(item_uuid)
+            if success:
+                self.has_change = True
+            return success
+        else:
+            raise ValueError(f"Item '{item_name}' not found in the list.")
 
     def delete_list(self, list_id):
         """Mark a shopping list as deleted."""

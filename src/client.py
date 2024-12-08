@@ -83,6 +83,11 @@ class ShoppingListClient:
         self.shopping_list.delete_list(list_id)
         self._save_local_data()
 
+    def buy_item(self, list_id, item_name):
+        """Buy an item from a shopping list."""
+        self.shopping_list.buy_item(list_id, item_name)
+        self._save_local_data()
+
     def create_item(self, list_id, item_name, quantity):
         """Add an item to a shopping list."""
         self.shopping_list.create_item(list_id, item_name, quantity)
@@ -120,7 +125,8 @@ if __name__ == "__main__":
         print("4. Remove Item")
         print("5. Update Item Quantity")
         print("6. View Lists")
-        print("7. Exit")
+        print("7. Buy Item")
+        print("8. Exit")
 
         choice = input("Enter your choice: ")
         try:
@@ -162,6 +168,15 @@ if __name__ == "__main__":
                     print(f"List ID: {list_id}, Name: {details['name']}")
                     for item in details["items"]:
                         print(f"  - {item['product_name']} (Quantity: {item['product_quantity']})")
+            
+            elif choice == "7":
+                list_id = input("Enter list ID: ")
+                item_name = input("Enter item name: ")
+                try:
+                    client.buy_item(list_id, item_name)
+                    print(f"Marked '{item_name}' as bought.")
+                except ValueError as e:
+                    print(f"Error: {e}")
 
             elif choice == "8":
                 print("Exiting.")
