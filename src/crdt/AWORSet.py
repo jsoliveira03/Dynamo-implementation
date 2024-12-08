@@ -10,7 +10,7 @@ class AWORSet:
         self.removes = {}  # Tracks removed items (tombstones)
         self.bought = {}
 
-    def add(self, product_name, quantity, product_uuid=None):
+    def add(self, product_name, quantity, product_uuid=None, deleted = False, bought = False):
         """Add a product to the set."""
         if product_uuid is None:
             product_uuid = str(uuid.uuid4())  # Generate a unique UUID if none provided
@@ -21,8 +21,8 @@ class AWORSet:
                 self.items[product_uuid] = {
                     'product_name': product_name,
                     'product_quantity': PNCounter(),
-                    'deleted': False,
-                    'bought': False,
+                    'deleted': deleted,
+                    'bought': bought,
                     'timestamp': timestamp  
                 }
             self.items[product_uuid]['product_quantity'].increment(quantity)
@@ -43,7 +43,6 @@ class AWORSet:
                 item_data['deleted'] = True
                 item_data['timestamp'] = timestamp
                 self.items[product_uuid] = item_data
-            del self.items[product_uuid]
             print(f"Product removed locally.")
         else:
             print("Item not found to remove.")
@@ -94,63 +93,50 @@ class AWORSet:
 
     def merge(self, other):
         """Merge another AWORSet into this one."""
-        # First, handle removals and bought items which can affect the items dictionary
+        # Merge removals first - more aggressive tombstone propagation
         for product_uuid, remove_info in other.removes.items():
             if (product_uuid not in self.removes or 
                 remove_info['timestamp'] > self.removes[product_uuid]['timestamp']):
                 self.removes[product_uuid] = remove_info.copy()
+                
+                # Ensure deletion is handled properly, even on client
                 if product_uuid in self.items:
-                    if self.owner != "client":  
-                        self.items[product_uuid]['deleted'] = True
-                        self.items[product_uuid]['timestamp'] = remove_info['timestamp']
-                    else:  
+                    self.items[product_uuid]['deleted'] = True
+                    self.items[product_uuid]['timestamp'] = remove_info['timestamp']
+                    
+                    # For the client, the item should be removed locally when deleted
+                    if self.owner == "client":
                         del self.items[product_uuid]
 
-        # Handle bought items with proper timestamp comparison
-        for product_uuid, bought_info in other.bought.items():
-            if (product_uuid not in self.bought or 
-                bought_info['timestamp'] > self.bought[product_uuid]['timestamp']):
-                self.bought[product_uuid] = bought_info.copy()
-                
-                # Update or create the item with bought status
-                if product_uuid in other.items:
-                    if self.owner != "client":
-                        if product_uuid not in self.items:
-                            self.items[product_uuid] = other.items[product_uuid].copy()
-                        self.items[product_uuid]['bought'] = True
-                        self.items[product_uuid]['product_quantity'].set_to_zero()
-                        self.items[product_uuid]['timestamp'] = bought_info['timestamp']
-                    else:
-                        # Client should remove bought items
-                        if product_uuid in self.items:
-                            del self.items[product_uuid]
-
-        # Then handle additions and updates
+        # Merge additions
         for product_uuid, timestamp in other.adds.items():
-            if (product_uuid not in self.items or 
-                (product_uuid in other.items and 
-                 other.items[product_uuid]['timestamp'] > self.items[product_uuid].get('timestamp', 0))):
                 
-                # Only add if not bought or removed (for client)
-                if ((product_uuid not in self.bought and 
-                     product_uuid not in self.removes) or 
-                    self.owner != "client"):
-                    self.adds[product_uuid] = timestamp
-                    if product_uuid in other.items:
-                        if product_uuid not in self.items:
-                            self.items[product_uuid] = other.items[product_uuid].copy()
-                        if product_uuid in self.bought:
-                            self.items[product_uuid]['bought'] = True
-                            self.items[product_uuid]['product_quantity'].set_to_zero()
+            # Conditions for adding/updating the item
+            is_not_deleted = (
+                product_uuid not in self.removes or 
+                self.removes[product_uuid]['type'] != 'deleted'
+            )
+            
+            is_newer = (
+                product_uuid not in self.items or 
+                (product_uuid in other.items and 
+                other.items[product_uuid]['timestamp'] > self.items[product_uuid].get('timestamp', 0))
+            )
+            
+            if is_not_deleted and is_newer:
+                self.adds[product_uuid] = timestamp
+                if product_uuid in other.items:
+                    self.items[product_uuid] = other.items[product_uuid].copy()
 
-        # Finally, merge PN-Counters for quantities
+        # Merge item quantities
         for product_uuid, item in list(self.items.items()):
             if product_uuid in other.items:
-                item['product_quantity'].merge(other.items[product_uuid]['product_quantity'])
-                # Ensure bought status is preserved
-                if product_uuid in self.bought:
-                    item['bought'] = True
-                    item['product_quantity'].set_to_zero()
+                # Only merge if not deleted
+                if not item.get('deleted', False):
+                    item['product_quantity'].merge(other.items[product_uuid]['product_quantity'])
+
+
+
 
 
     def get_items(self):

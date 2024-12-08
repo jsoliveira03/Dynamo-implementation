@@ -35,7 +35,6 @@ class ShoppingList:
     def delete_list(self, list_id):
         """Mark a shopping list as deleted."""
         if list_id in self.lists:
-            print("TRUE for deleted")
             self.lists[list_id]["deleted"] = True
             self.has_change = True
         else:
@@ -129,27 +128,29 @@ class ShoppingList:
                     "deleted": remote_list["deleted"],
                     "items": AWORSet(owner=self.owner),
                 }
-            
+
             local_list = self.lists[list_id]
+            
+            # Update name and deletion status based on the remote data
             if not local_list["deleted"] or remote_list["deleted"]:
                 local_list["name"] = remote_list["name"]
                 local_list["deleted"] = remote_list["deleted"]
 
-                # If list is not deleted, merge items
+                # Only merge items if the list is not deleted
                 if not local_list["deleted"]:
                     remote_aworset = AWORSet(owner=self.owner)
                     for item in remote_list["items"]:
                         remote_aworset.add(
                             product_name=item["product_name"],
                             quantity=item["product_quantity"],
-                            product_uuid=item["uuid"]
+                            product_uuid=item["uuid"],
+                            deleted=item["deleted"],
+                            bought=item["bought"]
                         )
-                    
-                    # Merge items using AWORSet - deleted items will be removed locally
+                    # Merge items using AWORSet
                     local_list["items"].merge(remote_aworset)
 
         self.has_change = True
-
 
 
     def info(self):
