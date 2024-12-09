@@ -17,5 +17,27 @@
                 "timestamp": 1733748758.612182
             }
         ]
+    },
+    "5423eae2-6cab-4df5-b008-de8f0744e310": {
+        "name": "test2",
+        "deleted": false,
+        "items": [
+            {
+                "uuid": "84e024d9-491c-43f5-82a4-bda7634430ad",
+                "product_name": "arroz",
+                "product_quantity": 6,
+                "deleted": false,
+                "bought": false,
+                "timestamp": 1733752341.486445
+            },
+            {
+                "uuid": "88c6056a-60b0-4c2e-9f2b-f13449fb9b7b",
+                "product_name": "bolo",
+                "product_quantity": 2,
+                "deleted": false,
+                "bought": false,
+                "timestamp": 1733752726.5354571
+            }
+        ]
     }
 }

@@ -124,10 +124,6 @@ class ShoppingList:
 
     def merge(self, remote_data):
         """Merge this ShoppingList instance with a remote replica."""
-        print("self")
-        print(self)
-        print("remote")
-        print(remote_data)
         
         for list_id, remote_list in remote_data.items():
             if list_id not in self.lists:
@@ -162,12 +158,8 @@ class ShoppingList:
                         )
 
                     # Merge items using AWORSet
-                    print("local:\n", repr(local_list["items"]))  # Use repr to print AWORSet
-                    print("remote:\n", repr(remote_aworset))      # Use repr to print AWORSet
                     local_list["items"].merge(remote_aworset)
-                    print("AFTER MERGEEEEEEEEEE\n")
-                    print("local:\n", repr(local_list["items"]))  # Use repr to print AWORSet
-                    print("remote:\n", repr(remote_aworset))      # Use repr to print AWORSet
+
 
         self.has_change = True
 

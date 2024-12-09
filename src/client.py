@@ -44,10 +44,8 @@ class ShoppingListClient:
         """Send a request to the server and receive a response."""
         message = {"action": action, "data": data}
         try:
-            #print("Sending request to server:", message)  # Debugging print
             self.socket.send_string(json.dumps(message))
             response = self.socket.recv_string()
-            #print("Received response from server:", response)  # Debugging print
             return json.loads(response)
         except zmq.error.Again:
             print("Server not responding")
@@ -68,13 +66,9 @@ class ShoppingListClient:
             try:
                 response = self._send_request("syncLists", self.shopping_list.info())
                 if response.get("success"):
-                    # print("RESPONSEEEEE")
-                    # print(response)
-                    # print("LOCALLLLL")
-                    # print(self.shopping_list)
                     self.shopping_list.merge(response["lists"])
                     self._save_local_data()
-                    #print("\nSynced with server successfully.")
+                    print("\nSynced with server successfully.")
                 else:
                     print(f"\nFailed to sync with server: {response.get('error')}")
             except Exception as e:

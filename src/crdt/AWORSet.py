@@ -107,10 +107,6 @@ class AWORSet:
     def merge(self, other):
         """Merge another AWORSet into this one."""
         # Merge removals first - more aggressive tombstone propagation
-        # print("self")
-        # print(self.items)
-        # print("other")
-        # print(other.items)
         for product_uuid, remove_info in other.removes.items():
             if (product_uuid not in self.removes or 
                 remove_info['timestamp'] > self.removes[product_uuid]['timestamp']):
@@ -126,7 +122,6 @@ class AWORSet:
                         del self.items[product_uuid]
 
         # Merge additions
-        # print( "ADDDDDDSSSSSS" + other.adds.items())
         for product_uuid, timestamp in other.adds.items():
             # Conditions for adding/updating the item
             is_not_deleted = (
@@ -140,18 +135,11 @@ class AWORSet:
                 other.items[product_uuid]['timestamp'] > self.items[product_uuid].get('timestamp', 0))
             )
 
-            # print("is Newer")
-            # print(is_newer)
             
             if is_not_deleted and is_newer:
                 self.adds[product_uuid] = timestamp
                 if product_uuid in other.items:
                     self.items[product_uuid] = other.items[product_uuid].copy()
-
-        # print("self11111")
-        # print(self.items)
-        # print("other11111")
-        # print(other.items)
 
         # Merge item quantities
         for product_uuid, item in list(self.items.items()):
