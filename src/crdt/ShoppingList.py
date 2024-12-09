@@ -1,4 +1,5 @@
 import uuid
+import time
 from crdt.AWORSet import AWORSet
 
 class ShoppingList:
@@ -6,6 +7,9 @@ class ShoppingList:
         self.owner = owner
         self.lists = {}
         self.has_change = True
+
+    def __repr__(self):
+        return f"ShoppingList(owner={self.owner}, lists={self.info()})"
 
     def create_list(self, name):
         """Create a new shopping list."""
@@ -120,6 +124,11 @@ class ShoppingList:
 
     def merge(self, remote_data):
         """Merge this ShoppingList instance with a remote replica."""
+        print("self")
+        print(self)
+        print("remote")
+        print(remote_data)
+        
         for list_id, remote_list in remote_data.items():
             if list_id not in self.lists:
                 # Create a new list locally
@@ -140,17 +149,28 @@ class ShoppingList:
                 if not local_list["deleted"]:
                     remote_aworset = AWORSet(owner=self.owner)
                     for item in remote_list["items"]:
+                        # Use the remote timestamp or current time if not present
+                        timestamp = item.get("timestamp", time.time())
+
                         remote_aworset.add(
                             product_name=item["product_name"],
                             quantity=item["product_quantity"],
                             product_uuid=item["uuid"],
                             deleted=item["deleted"],
-                            bought=item["bought"]
+                            bought=item["bought"],
+                            timestamp=timestamp
                         )
+
                     # Merge items using AWORSet
+                    print("local:\n", repr(local_list["items"]))  # Use repr to print AWORSet
+                    print("remote:\n", repr(remote_aworset))      # Use repr to print AWORSet
                     local_list["items"].merge(remote_aworset)
+                    print("AFTER MERGEEEEEEEEEE\n")
+                    print("local:\n", repr(local_list["items"]))  # Use repr to print AWORSet
+                    print("remote:\n", repr(remote_aworset))      # Use repr to print AWORSet
 
         self.has_change = True
+
 
 
     def info(self):

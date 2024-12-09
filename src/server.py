@@ -46,22 +46,23 @@ class Server:
             response = {"success": True}  # Default response structure
 
             if action == "syncLists":
-                client_lists = data  # Data sent by the client
-                print("Server received sync data:", client_lists)
-                self.shopping_list.merge(client_lists)  # Merge client's lists into server's data
-                response["lists"] = self.shopping_list.info()  # Send updated server lists back
-                print("Server's updated lists:", self.shopping_list.info())
+                # Merge incoming client data into the server's state
+                self.shopping_list.merge(data) #o erro esta aqui antes do merge o self e o data estao corretos
+                
+                # Save the merged state to the server's persistent storage
+                self._save_data()
+                
+                # Respond with the updated server state
+                response["lists"] = self.shopping_list.info()
 
             else:
-                print("\n\n\nInvalid action requested. (mauybe revert to the other commit where we had other actions here)\n\n\n")
-
-            # Save data after handling the request
-            self._save_data()
+                response = {"success": False, "error": "Invalid action requested"}
 
             return json.dumps(response)
 
         except Exception as e:
             return json.dumps({"success": False, "error": str(e)})
+
 
     def run(self):
         """
