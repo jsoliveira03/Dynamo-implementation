@@ -83,8 +83,7 @@ class Server:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Shopping List Server')
     parser.add_argument('--port', type=int, required=True, help="Port for the server to listen on")
-    parser.add_argument('--all_ports', type=int, nargs='+', required=True, help="All ports in the hash ring")
     args = parser.parse_args()
 
-    server = Server(port=args.port, all_ports=args.all_ports)
+    server = Server(port=args.port)
     server.run()

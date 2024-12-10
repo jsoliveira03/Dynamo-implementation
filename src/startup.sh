@@ -21,7 +21,15 @@ echo "Starting server instances..."
 for port in "${SERVER_PORTS[@]}"
 do
     echo "Starting server on port $port..."
-    python3 server.py --port $port --all_ports "${SERVER_PORTS[@]}" &
+    # Start each server in the background
+    # Ensure the server.py file is in the correct location or adjust the path
+    python3 server.py --port $port &
 done
 
-echo "All servers started successfully!"
+# Allow servers to start before the client interacts
+sleep 5
+
+# Notify that the servers are running
+echo "Server instances started successfully."
+
+echo "To start the client, run 'python3 client.py' manually."
