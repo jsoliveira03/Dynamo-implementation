@@ -1,5 +1,4 @@
 import uuid
-import time
 from crdt.AWORSet import AWORSet
 
 class ShoppingList:
@@ -7,6 +6,13 @@ class ShoppingList:
         self.owner = owner
         self.lists = {}
         self.has_change = True
+
+    def _get_next_timestamp(self, list_id):
+        """Generate the next logical timestamp for a list."""
+        max_timestamp = self.lists[list_id].get("max_timestamp", 0)
+        next_timestamp = max_timestamp + 1
+        self.lists[list_id]["max_timestamp"] = next_timestamp
+        return next_timestamp
 
     def __repr__(self):
         return f"ShoppingList(owner={self.owner}, lists={self.info()})"
@@ -17,7 +23,8 @@ class ShoppingList:
         self.lists[list_id] = {
             "name": name,
             "deleted": False,
-            "items": AWORSet(owner=self.owner)  # Use AWORSet for managing items
+            "items": AWORSet(owner=self.owner),
+            "max_timestamp": 0
         }
         self.has_change = True
         return list_id
@@ -48,29 +55,27 @@ class ShoppingList:
         """Add an item to the specified shopping list."""
         if list_id not in self.lists or self.lists[list_id]["deleted"]:
             raise ValueError("List not found or deleted.")
-
-        self.lists[list_id]["items"].add(item_name, quantity)
+        
+        next_timestamp = self._get_next_timestamp(list_id)
+        self.lists[list_id]["items"].add(item_name, quantity, timestamp=next_timestamp)
         self.has_change = True
 
     def load(self, data):
         """Load shopping list data from a JSON-like structure."""
         for list_id, list_data in data.items():
-            # Initialize the list with name and deleted status
             self.lists[list_id] = {
                 "name": list_data.get("name", "Unnamed List"),
                 "deleted": list_data.get("deleted", False),
-                "items": AWORSet(owner=self.owner)  # Create AWORSet for items
+                "items": AWORSet(owner=self.owner) 
             }
             
-            # Load items into the AWORSet
             items = list_data.get("items", {})
-            for item_uuid, item_data in items.items():
+            for _, item_data in items.items():
                 name = item_data["name"]
                 counter_data = item_data["counter"]
                 increments = counter_data.get("increments", 0)
                 decrements = counter_data.get("decrements", 0)
                 
-                # Add the item to the AWORSet with the proper PN-Counter values
                 self.lists[list_id]["items"].add(name, increments - decrements)
 
         self.has_change = True
@@ -82,6 +87,7 @@ class ShoppingList:
 
         item_uuid = self.lists[list_id]["items"].find_uuid_by_name(item_name)
         if item_uuid:
+            next_timestamp = self._get_next_timestamp(list_id)
             self.lists[list_id]["items"].remove(item_uuid)
             self.has_change = True
         else:
@@ -100,10 +106,10 @@ class ShoppingList:
         if item["deleted"]:
             raise ValueError(f"Item '{item_name}' is marked as deleted.")
 
-        if increment > 0:
-            item["product_quantity"].increment(increment)
-        if decrement > 0:
-            item["product_quantity"].decrement(decrement)
+        if increment > 0 or decrement > 0:
+            next_timestamp = self._get_next_timestamp(list_id)
+            self.lists[list_id]["items"].update_quantity(item_uuid, increment, decrement)
+            item["timestamp"] = next_timestamp
 
         self.has_change = True
 
@@ -127,26 +133,23 @@ class ShoppingList:
         
         for list_id, remote_list in remote_data.items():
             if list_id not in self.lists:
-                # Create a new list locally
                 self.lists[list_id] = {
                     "name": remote_list["name"],
                     "deleted": remote_list["deleted"],
                     "items": AWORSet(owner=self.owner),
+                    "max_timestamp": 0
                 }
 
             local_list = self.lists[list_id]
             
-            # Update name and deletion status based on the remote data
             if not local_list["deleted"] or remote_list["deleted"]:
                 local_list["name"] = remote_list["name"]
                 local_list["deleted"] = remote_list["deleted"]
 
-                # Only merge items if the list is not deleted
                 if not local_list["deleted"]:
                     remote_aworset = AWORSet(owner=self.owner)
                     for item in remote_list["items"]:
-                        # Use the remote timestamp or current time if not present
-                        timestamp = item.get("timestamp", time.time())
+                        timestamp = item.get("timestamp", 0)
 
                         remote_aworset.add(
                             product_name=item["product_name"],
@@ -157,7 +160,6 @@ class ShoppingList:
                             timestamp=timestamp
                         )
 
-                    # Merge items using AWORSet
                     local_list["items"].merge(remote_aworset)
 
 
