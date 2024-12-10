@@ -10,6 +10,17 @@ class AWORSet:
         self.removes = {}  # Tracks removed items (tombstones)
         self.bought = {}
     
+    def _get_next_timestamp(self):
+        """Get the next logical timestamp based on the current state."""
+        max_timestamp = 0
+        for container in [self.items.values(), self.adds.values(), self.removes.values(), self.bought.values()]:
+            for entry in container:
+                if isinstance(entry, dict):  
+                    max_timestamp = max(max_timestamp, entry.get('timestamp', 0))
+                else:  
+                    max_timestamp = max(max_timestamp, entry)
+        return max_timestamp + 1  
+    
     def __repr__(self):
         """Provide a string representation of the AWORSet."""
         items_repr = ", ".join(f"{uuid}: {item['product_name']} (Quantity: {item['product_quantity'].get_value()}, Timestamp: {item['timestamp']})"
@@ -29,7 +40,7 @@ class AWORSet:
         if product_uuid is None:
             product_uuid = str(uuid.uuid4())  # Generate a unique UUID if none provided
         if timestamp is None:
-            timestamp = time.time()  # Use current time if no timestamp is provided
+            timestamp = self._get_next_timestamp()  # Use logical timestamp if not provided
 
         # Only add if it's not removed, or the new timestamp is greater than the removal timestamp
         if product_uuid not in self.removes or timestamp > self.removes[product_uuid].get('timestamp', 0):
@@ -39,7 +50,7 @@ class AWORSet:
                     'product_quantity': PNCounter(),
                     'deleted': deleted,
                     'bought': bought,
-                    'timestamp': timestamp  
+                    'timestamp': timestamp
                 }
             self.items[product_uuid]['product_quantity'].increment(quantity)
             self.adds[product_uuid] = timestamp
@@ -49,7 +60,7 @@ class AWORSet:
     def remove(self, product_uuid):
         """Mark a product as deleted and remove it locally."""
         if product_uuid in self.items:
-            timestamp = time.time()
+            timestamp = self._get_next_timestamp()
             self.removes[product_uuid] = {
                 'timestamp': timestamp,
                 'type': 'deleted',
@@ -67,7 +78,7 @@ class AWORSet:
     def buy_item(self, product_uuid):
         """Mark a product as bought and set quantity to 0."""
         if product_uuid in self.items:
-            timestamp = time.time()
+            timestamp = self._get_next_timestamp()
             # Store bought info
             self.bought[product_uuid] = {
                 'timestamp': timestamp,
@@ -87,22 +98,6 @@ class AWORSet:
         else:
             print("Item not found to buy.")
             return False
-
-    def update_quantity(self, product_uuid, increment=0, decrement=0):
-        """Update the quantity of an item using its PN-Counter."""
-        if product_uuid in self.items:
-            if self.items[product_uuid]['deleted']:
-                raise ValueError(f"Cannot update quantity for deleted item: {self.items[product_uuid]['product_name']}.")
-
-            counter = self.items[product_uuid]['product_quantity']
-            if increment > 0:
-                counter.increment(increment)
-            if decrement > 0:
-                counter.decrement(decrement)
-            self.items[product_uuid]['timestamp'] = time.time()
-            print(f"Updated quantity for {self.items[product_uuid]['product_name']}: {counter.get_value()}")
-        else:
-            raise ValueError("Item not found to update.")
 
     def merge(self, other):
         """Merge another AWORSet into this one."""
