@@ -4,11 +4,13 @@ import os
 import threading
 import time
 from crdt.ShoppingList import ShoppingList
+from HashRing import HashRing  # Import the HashRing class
 
 CONFIG = {
     "json_file": "./client_data.json",
     "server_port": 5500,
     "sync_interval": 15,
+    "servers": [5501, 5502, 5503, 5504, 5505],  # List of all server ports in the hash ring
 }
 
 class ShoppingListClient:
@@ -16,14 +18,17 @@ class ShoppingListClient:
         self.shopping_list = ShoppingList(owner="client")
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
-        self.socket.connect(f"tcp://localhost:{CONFIG['server_port']}")
+        
+        # Create the hash ring for routing requests to the correct server
+        self.hash_ring = HashRing(CONFIG["servers"])
+        
         self.sync_lock = threading.Lock()
         self.running = True
         
         # Load initial data
         self._load_local_data()
         
-        # Start sync thread
+        # Start sync thread for automatic synchronization
         self.sync_thread = threading.Thread(target=self._auto_sync, daemon=True)
         self.sync_thread.start()
 
@@ -34,16 +39,22 @@ class ShoppingListClient:
                 data = json.load(file)
                 self.shopping_list.merge(data)
 
-
     def _save_local_data(self):
         """Save shopping list data to a JSON file."""
         with open(CONFIG["json_file"], "w") as file:
             json.dump(self.shopping_list.info(), file, indent=4)
 
     def _send_request(self, action, data):
-        """Send a request to the server and receive a response."""
+        """Send a request to the correct server based on the list_id and receive a response."""
         message = {"action": action, "data": data}
         try:
+            # Use the HashRing to determine which server is responsible for the request
+            key = data.get("list_id")  # Get the list_id or any other identifier for routing
+            responsible_server = self.hash_ring.get_server(key)  # Get the correct server from the ring
+            print(f"Request routed to server: {responsible_server}")
+            
+            # Connect to the responsible server dynamically
+            self.socket.connect(f"tcp://localhost:{responsible_server}")
             self.socket.send_string(json.dumps(message))
             response = self.socket.recv_string()
             return json.loads(response)
@@ -64,6 +75,7 @@ class ShoppingListClient:
         """Synchronize with server and handle conflicts."""
         with self.sync_lock:
             try:
+                # Fetch the server's state and merge with local state
                 response = self._send_request("syncLists", self.shopping_list.info())
                 if response.get("success"):
                     self.shopping_list.merge(response["lists"])

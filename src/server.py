@@ -1,19 +1,21 @@
+import argparse
 import zmq
-import threading
 import json
 import os
+import threading
 from crdt.ShoppingList import ShoppingList
 
 CONFIG = {
     "json_folder": "./data/",
-    "port": 5500
+    "update_interval": 15,  # Periodic update interval in seconds
 }
 
 class Server:
-    def __init__(self, port=CONFIG["port"]):
+    def __init__(self, port):
         self.port = port
         self.shopping_list = ShoppingList(owner=port)  # Initialize ShoppingList
-        self.json_path = f"{CONFIG['json_folder']}lists.json"
+        # Set a unique JSON file path based on the server's port number
+        self.json_path = f"{CONFIG['json_folder']}lists_{self.port}.json"
         self.lock = threading.Lock()
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
@@ -47,7 +49,7 @@ class Server:
 
             if action == "syncLists":
                 # Merge incoming client data into the server's state
-                self.shopping_list.merge(data) #o erro esta aqui antes do merge o self e o data estao corretos
+                self.shopping_list.merge(data)  # Merge data into local shopping list
                 
                 # Save the merged state to the server's persistent storage
                 self._save_data()
@@ -79,5 +81,10 @@ class Server:
                 print(f"Error in server loop: {e}")
 
 if __name__ == "__main__":
-    server = Server()
+    parser = argparse.ArgumentParser(description='Shopping List Server')
+    parser.add_argument('--port', type=int, required=True, help="Port for the server to listen on")
+    parser.add_argument('--all_ports', type=int, nargs='+', required=True, help="All ports in the hash ring")
+    args = parser.parse_args()
+
+    server = Server(port=args.port, all_ports=args.all_ports)
     server.run()
