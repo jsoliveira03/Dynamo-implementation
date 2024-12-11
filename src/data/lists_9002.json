@@ -7,9 +7,9 @@
                 "uuid": "b491ef80-ff97-46e7-bf23-0d062d722269",
                 "product_name": "1",
                 "product_quantity": 1,
-                "deleted": false,
+                "deleted": true,
                 "bought": false,
-                "timestamp": 1
+                "timestamp": 3
             },
             {
                 "uuid": "ffd8a27f-e443-4f21-9b45-3538b59658f8",
