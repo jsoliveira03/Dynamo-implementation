@@ -1,24 +1,21 @@
 {
-    "118aaf2b-4368-480a-af17-8ed4858f9a08": {
+    "bcb8ba9f-fb1e-482e-8303-1600f13a7bcc": {
         "name": "aa",
         "deleted": false,
         "items": [
             {
-                "uuid": "b491ef80-ff97-46e7-bf23-0d062d722269",
-                "product_name": "1",
-                "product_quantity": 1,
-                "deleted": false,
-                "bought": false,
-                "timestamp": 1
-            },
-            {
-                "uuid": "ffd8a27f-e443-4f21-9b45-3538b59658f8",
+                "uuid": "29b7b03d-6fc0-4b00-a3ec-3ec3234dec1e",
                 "product_name": "a",
                 "product_quantity": 1,
-                "deleted": false,
+                "deleted": true,
                 "bought": false,
                 "timestamp": 2
             }
         ]
+    },
+    "4ded5f47-1e08-47f5-ab53-3479eecdaa69": {
+        "name": "b",
+        "deleted": false,
+        "items": []
     }
 }
