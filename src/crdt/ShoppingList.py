@@ -112,7 +112,7 @@ class ShoppingList:
         if decrement > 0:
             item["product_quantity"].decrement(decrement)
 
-        item = self.lists[list_id]["items"].items[item_uuid]["timestamp"] = get_next_timestamp(self, list_id)
+        item = self.lists[list_id]["items"].items[item_uuid]["timestamp"] = self.get_next_timestamp(list_id)
 
         self.has_change = True
 
