@@ -4,13 +4,11 @@ import os
 import threading
 import time
 from crdt.ShoppingList import ShoppingList
-from HashRing import HashRing  # Import the HashRing class
 
 CONFIG = {
     "json_file": "./client_data.json",
-    "server_port": 5500,
+    "proxy_port": 9000,  # The port where the proxy is running
     "sync_interval": 15,
-    "servers": [5501, 5502, 5503, 5504, 5505],  # List of all server ports in the hash ring
 }
 
 class ShoppingListClient:
@@ -18,9 +16,6 @@ class ShoppingListClient:
         self.shopping_list = ShoppingList(owner="client")
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
-        
-        # Create the hash ring for routing requests to the correct server
-        self.hash_ring = HashRing(CONFIG["servers"])
         
         self.sync_lock = threading.Lock()
         self.running = True
@@ -35,9 +30,21 @@ class ShoppingListClient:
     def _load_local_data(self):
         """Load local shopping list data from file."""
         if os.path.exists(CONFIG["json_file"]):
-            with open(CONFIG["json_file"], "r") as file:
-                data = json.load(file)
-                self.shopping_list.merge(data)
+            try:
+                with open(CONFIG["json_file"], "r") as file:
+                    content = file.read().strip()
+                    if content:
+                        data = json.loads(content)  # Parse JSON data
+                        self.shopping_list.merge(data)  # Merge with local shopping list
+                    else:
+                        print(f"Warning: {CONFIG['json_file']} is empty, initializing with empty data.")
+            except json.JSONDecodeError:
+                print(f"Warning: {CONFIG['json_file']} contains invalid JSON, initializing with empty data.")
+            except Exception as e:
+                print(f"Error loading data from {CONFIG['json_file']}: {e}")
+        else:
+            print(f"Warning: {CONFIG['json_file']} does not exist, initializing with empty data.")
+            # You can optionally initialize an empty shopping list here if needed
 
     def _save_local_data(self):
         """Save shopping list data to a JSON file."""
@@ -45,24 +52,19 @@ class ShoppingListClient:
             json.dump(self.shopping_list.info(), file, indent=4)
 
     def _send_request(self, action, data):
-        """Send a request to the correct server based on the list_id and receive a response."""
+        """Send a request to the proxy and receive a response."""
         message = {"action": action, "data": data}
         try:
-            # Use the HashRing to determine which server is responsible for the request
-            key = data.get("list_id")  # Get the list_id or any other identifier for routing
-            responsible_server = self.hash_ring.get_server(key)  # Get the correct server from the ring
-            print(f"Request routed to server: {responsible_server}")
-            
-            # Connect to the responsible server dynamically
-            self.socket.connect(f"tcp://localhost:{responsible_server}")
+            # Connect to the proxy that will route the request to the correct server
+            self.socket.connect(f"tcp://localhost:{CONFIG['proxy_port']}")
             self.socket.send_string(json.dumps(message))
             response = self.socket.recv_string()
             return json.loads(response)
         except zmq.error.Again:
-            print("Server not responding")
-            return {"success": False, "error": "Server not responding"}
+            print("Proxy not responding")
+            return {"success": False, "error": "Proxy not responding"}
         except Exception as e:
-            print(f"Error communicating with server: {e}")
+            print(f"Error communicating with proxy: {e}")
             return {"success": False, "error": str(e)}
 
     def _auto_sync(self):
@@ -72,7 +74,7 @@ class ShoppingListClient:
             self.sync_with_server()
 
     def sync_with_server(self):
-        """Synchronize with server and handle conflicts."""
+        """Synchronize with the proxy and handle conflicts."""
         with self.sync_lock:
             try:
                 # Fetch the server's state and merge with local state

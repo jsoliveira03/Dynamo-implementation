@@ -7,7 +7,7 @@ class ShoppingList:
         self.lists = {}
         self.has_change = True
 
-    def _get_next_timestamp(self, list_id):
+    def get_next_timestamp(self, list_id):
         """Generate the next logical timestamp for a list."""
         max_timestamp = self.lists[list_id].get("max_timestamp", 0)
         next_timestamp = max_timestamp + 1
@@ -56,7 +56,7 @@ class ShoppingList:
         if list_id not in self.lists or self.lists[list_id]["deleted"]:
             raise ValueError("List not found or deleted.")
         
-        next_timestamp = self._get_next_timestamp(list_id)
+        next_timestamp = self.get_next_timestamp(list_id)
         self.lists[list_id]["items"].add(item_name, quantity, timestamp=next_timestamp)
         self.has_change = True
 
@@ -87,11 +87,12 @@ class ShoppingList:
 
         item_uuid = self.lists[list_id]["items"].find_uuid_by_name(item_name)
         if item_uuid:
-            next_timestamp = self._get_next_timestamp(list_id)
+            next_timestamp = self.get_next_timestamp(list_id)
             self.lists[list_id]["items"].remove(item_uuid)
             self.has_change = True
         else:
             raise ValueError(f"Item '{item_name}' not found in the list.")
+
 
     def update_quantity(self, list_id, item_name, increment=0, decrement=0):
         """Update the quantity of an item using AWORSet's PN-Counter."""
@@ -106,10 +107,12 @@ class ShoppingList:
         if item["deleted"]:
             raise ValueError(f"Item '{item_name}' is marked as deleted.")
 
-        if increment > 0 or decrement > 0:
-            next_timestamp = self._get_next_timestamp(list_id)
-            self.lists[list_id]["items"].update_quantity(item_uuid, increment, decrement)
-            item["timestamp"] = next_timestamp
+        if increment > 0:
+            item["product_quantity"].increment(increment)
+        if decrement > 0:
+            item["product_quantity"].decrement(decrement)
+
+        item = self.lists[list_id]["items"].items[item_uuid]["timestamp"] = get_next_timestamp(self, list_id)
 
         self.has_change = True
 

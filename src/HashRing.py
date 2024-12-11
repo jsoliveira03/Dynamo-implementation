@@ -3,43 +3,45 @@ import bisect
 
 class HashRing:
     def __init__(self, servers):
-        self.servers = servers
-        self.ring = []
-        self.node_map = {}
-        self.build_ring()
+        self.servers = sorted(servers)  # Sort servers in order for efficient search
+        self.ring = []  # The actual hash ring
+        self.populate_ring()
 
-    def _hash(self, key):
-        """Create a hash value for the given key"""
-        # Ensure that the key (server) is converted to a string before hashing
-        key_str = str(key)  # Convert the key to string
-        return int(hashlib.md5(key_str.encode('utf-8')).hexdigest(), 16)
-
-    def build_ring(self):
-        """Build the hash ring with each server's hash"""
+    def populate_ring(self):
+        """Populate the hash ring using a simple hash of server names."""
         for server in self.servers:
-            hash_value = self._hash(server)
-            self.ring.append(hash_value)
-            self.node_map[hash_value] = server
-        self.ring.sort()
+            server_hash = self.hash_server(server)
+            self.ring.append((server_hash, server))
+        # Sorting the ring is only necessary here as we populate the ring
+        self.ring.sort()  # Ensure the ring is sorted by hash values
 
-    def add_server(self, server):
-        """Add a server to the ring"""
-        hash_value = self._hash(server)
-        bisect.insort(self.ring, hash_value)
-        self.node_map[hash_value] = server
-
-    def remove_server(self, server):
-        """Remove a server from the ring"""
-        hash_value = self._hash(server)
-        self.ring.remove(hash_value)
-        del self.node_map[hash_value]
+    def hash_server(self, server):
+        """Generate a hash for a server name."""
+        return int(hashlib.sha256(server.encode('utf-8')).hexdigest(), 16)
 
     def get_server(self, key):
-        """Get the server for a given key"""
-        if not self.ring:
-            return None
-        hash_value = self._hash(key)
-        idx = bisect.bisect(self.ring, hash_value)
-        if idx == len(self.ring):
-            idx = 0
-        return self.node_map[self.ring[idx]]
+        """Get the server responsible for the given key."""
+        key_hash = self.hash_server(key)
+        # Bisect to find the correct server position
+        pos = bisect.bisect_right([h for h, _ in self.ring], key_hash)
+        if pos == len(self.ring):  # If it exceeds the ring, wrap around to the first server
+            pos = 0
+        return self.ring[pos][1]  # Return the server's name
+
+    def get_neighbors(self, key, num_neighbors=2):
+        """Get N neighbors of the key's server in the ring."""
+        server = self.get_server(key)
+        idx = self.servers.index(server)
+        neighbors = [self.servers[(idx + i) % len(self.servers)] for i in range(1, num_neighbors + 1)]
+        return neighbors
+
+if __name__ == "__main__":
+    servers = ['server1', 'server2', 'server3', 'server4']
+    hash_ring = HashRing(servers)
+
+    # Example keys
+    keys = ['key1', 'key2', 'key3', 'key4', 'key5']
+
+    for key in keys:
+        server = hash_ring.get_server(key)
+        print(f"Key '{key}' is assigned to server: {server}")
