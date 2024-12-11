@@ -3,7 +3,7 @@ import zmq
 import json
 import os
 import threading
-from crdt.ShoppingList import ShoppingList
+from crdt.ShoppingList import ShoppingList  # Assuming you have a ShoppingList class
 
 CONFIG = {
     "json_folder": "./data/",
@@ -25,11 +25,22 @@ class Server:
     def _load_data(self):
         """Load data from local storage and merge it into the shopping list."""
         if os.path.exists(self.json_path):
-            with open(self.json_path, "r") as file:
-                data = json.load(file)
-                self.shopping_list.merge(data)  # Merge data into the shopping list
+            try:
+                with open(self.json_path, "r") as file:
+                    # Check if the file is empty
+                    content = file.read().strip()
+                    if content:
+                        data = json.loads(content)
+                        self.shopping_list.merge(data)  # Merge data into the shopping list
+                    else:
+                        print(f"Warning: {self.json_path} is empty, initializing with empty data.")
+            except json.JSONDecodeError:
+                print(f"Warning: {self.json_path} contains invalid JSON, initializing with empty data.")
+            except Exception as e:
+                print(f"Error loading data from {self.json_path}: {e}")
         else:
             os.makedirs(CONFIG['json_folder'], exist_ok=True)
+            print(f"Warning: {self.json_path} does not exist, initializing with empty data.")
 
     def _save_data(self):
         """Save shopping list data to local storage if changes exist."""
@@ -39,7 +50,7 @@ class Server:
 
     def handle_request(self, message):
         """
-        Handle incoming client requests and perform appropriate actions.
+        Handle incoming client or proxy requests and perform appropriate actions.
         """
         try:
             request = json.loads(message)
@@ -48,13 +59,13 @@ class Server:
             response = {"success": True}  # Default response structure
 
             if action == "syncLists":
-                # Merge incoming client data into the server's state
-                self.shopping_list.merge(data)  # Merge data into local shopping list
+                # Merge incoming data (either from client or proxy) into the server's state
+                self.shopping_list.merge(data)
                 
                 # Save the merged state to the server's persistent storage
                 self._save_data()
                 
-                # Respond with the updated server state
+                # Respond with the updated server state (the merged shopping list)
                 response["lists"] = self.shopping_list.info()
 
             else:
@@ -65,10 +76,9 @@ class Server:
         except Exception as e:
             return json.dumps({"success": False, "error": str(e)})
 
-
     def run(self):
         """
-        Start the server to listen for incoming client requests.
+        Start the server to listen for incoming client or proxy requests.
         """
         print(f"Server listening on port {self.port}")
         while True:
