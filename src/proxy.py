@@ -21,6 +21,35 @@ class ProxyServer:
             socket.connect(f"tcp://localhost:{port}")
             self.worker_sockets[port] = socket
 
+    def replicate_to_neighbors(self, message, primary_port):
+        """Replicate data to neighbor servers."""
+        neighbors = self.hash_ring.get_neighbors(message)
+        responses = []
+        
+        # First send to primary
+        try:
+            primary_socket = self.worker_sockets[primary_port]
+            primary_socket.send_string(message)
+            response = primary_socket.recv_string()
+            responses.append(json.loads(response))
+        except zmq.error.Again:
+            print(f"Primary server {primary_port} failed during replication")
+            return None
+
+        # Then replicate to neighbors
+        for neighbor_port in neighbors:
+            try:
+                neighbor_socket = self.worker_sockets[neighbor_port]
+                neighbor_socket.send_string(message)
+                response = neighbor_socket.recv_string()
+                responses.append(json.loads(response))
+                print(f"Successfully replicated to neighbor {neighbor_port}")
+            except zmq.error.Again:
+                print(f"Failed to replicate to neighbor {neighbor_port}")
+                continue
+
+        return responses[0] if responses else None
+
     def handle_worker_failure(self, primary_port, message):
         """Handle worker failure by trying backup servers."""
         neighbors = self.hash_ring.get_neighbors(message)
@@ -30,10 +59,35 @@ class ProxyServer:
                 backup_socket.send_string(message)
                 response = backup_socket.recv_string()
                 print(f"Successfully failed over to backup server {backup_port}")
+                
+                self.sync_after_failover(message, backup_port)
                 return response
             except zmq.error.Again:
                 continue
         return json.dumps({"success": False, "error": "All servers unavailable"})
+    
+    def sync_after_failover(self, message, successful_port):
+        """Sync data to other available servers after a failover."""
+        try:
+            socket = self.worker_sockets[successful_port]
+            sync_message = json.dumps({"action": "get_state"})
+            socket.send_string(sync_message)
+            state = socket.recv_string()
+
+            for port in self.worker_ports:
+                if port != successful_port:
+                    try:
+                        sync_socket = self.worker_sockets[port]
+                        sync_socket.send_string(json.dumps({
+                            "action": "sync_state",
+                            "data": json.loads(state)
+                        }))
+                        sync_socket.recv_string()  
+                        print(f"Successfully synced state to server {port}")
+                    except zmq.error.Again:
+                        print(f"Failed to sync state to server {port}")
+        except Exception as e:
+            print(f"Error during post-failover sync: {e}")
     
 
     def start(self):
@@ -42,35 +96,24 @@ class ProxyServer:
         server.bind(f"tcp://*:{self.port}")
         print(f"Proxy Server running on port {self.port}")
         
-        # Initialize connections to all workers
         self.initialize_worker_sockets()
         
-        # Start health check thread
         health_check_thread = threading.Thread(target=self.check_server_health, daemon=True)
         health_check_thread.start()
 
         while True:
             try:
-                # Receive request from client
                 message = server.recv_string()
-                
-                # Get primary server for this message
                 primary_port = self.hash_ring.get_server(message)
                 
-                try:
-                    # Try primary server
-                    worker_socket = self.worker_sockets[primary_port]
-                    worker_socket.send_string(message)
-                    response = worker_socket.recv_string()
-                except zmq.error.Again:
-                    # If primary fails, try backup servers
-                    print(f"Primary server {primary_port} failed, trying backups...")
+                response_data = self.replicate_to_neighbors(message, primary_port)
+                
+                if response_data:
+                    server.send_string(json.dumps(response_data))
+                else:
                     response = self.handle_worker_failure(primary_port, message)
+                    server.send_string(response)
                 
-                # Send response back to client
-                server.send_string(response)
-                
-                # Update load statistics
                 print("\nCurrent server status:")
                 print(self.hash_ring.get_server_status())
                 
@@ -85,7 +128,6 @@ class ProxyServer:
             for port in list(self.worker_ports):
                 try:
                     socket = self.worker_sockets[port]
-                    # Send health check message
                     socket.send_string(json.dumps({"action": "health_check"}))
                     socket.recv_string()
                 except zmq.error.Again:
@@ -93,17 +135,50 @@ class ProxyServer:
                     self.hash_ring.remove_server(port)
                     del self.worker_sockets[port]
                     self.worker_ports.remove(port)
+                    self.sync_after_server_removal(port)
+
+    def sync_after_server_removal(self, failed_port):
+        """Ensure data is properly redistributed after a server fails."""
+        try:
+            neighbors = self.hash_ring.get_neighbors(failed_port)
+            if not neighbors:
+                return
+
+            for neighbor_port in neighbors:
+                try:
+                    socket = self.worker_sockets[neighbor_port]
+                    socket.send_string(json.dumps({"action": "get_state"}))
+                    state = socket.recv_string()
+                    
+                    state_data = json.loads(state)
+                    self.redistribute_data(state_data, neighbor_port)
+                    break
+                except zmq.error.Again:
+                    continue
+        except Exception as e:
+            print(f"Error during post-removal sync: {e}")
+
+    def redistribute_data(self, state_data, source_port):
+        """Redistribute data to available servers."""
+        for port in self.worker_ports:
+            if port != source_port:
+                try:
+                    socket = self.worker_sockets[port]
+                    socket.send_string(json.dumps({
+                        "action": "sync_state",
+                        "data": state_data
+                    }))
+                    socket.recv_string()
+                    print(f"Successfully redistributed data to server {port}")
+                except zmq.error.Again:
+                    print(f"Failed to redistribute data to server {port}")
 
 
 def main():
-    # Initialize with all 5 worker ports
     worker_ports = ['9001', '9002', '9003', '9004', '9005']
     proxy_port = 9000
-
-    # Start the proxy server
     proxy_server = ProxyServer(proxy_port, worker_ports)
     
-    # Start worker servers
     worker_processes = []
     for port in worker_ports:
         worker_server = Server(port)
@@ -111,7 +186,6 @@ def main():
         worker_process.start()
         worker_processes.append(worker_process)
 
-    # Start proxy server (this will block)
     proxy_server.start()
 
 

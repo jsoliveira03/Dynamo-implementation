@@ -10,14 +10,6 @@
                 "deleted": false,
                 "bought": false,
                 "timestamp": 1
-            },
-            {
-                "uuid": "ffd8a27f-e443-4f21-9b45-3538b59658f8",
-                "product_name": "a",
-                "product_quantity": 1,
-                "deleted": false,
-                "bought": false,
-                "timestamp": 2
             }
         ]
     }

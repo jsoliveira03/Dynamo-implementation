@@ -16,12 +16,11 @@ class HashRing:
         """Populate the hash ring using a simple hash of server names."""
         self.ring = []
         for server in self.servers:
-            # Create multiple virtual nodes for each server
             for i in range(self.replicas):
                 virtual_node = f"{server}:{i}"
                 server_hash = self.hash_server(virtual_node)
                 self.ring.append((server_hash, server))
-        self.ring.sort()   # Ensure the ring is sorted by hash values
+        self.ring.sort() 
 
     def hash_server(self, server):
         """Generate a hash for a server name."""
@@ -39,7 +38,6 @@ class HashRing:
         server = self.ring[pos][1]
         self.server_load[server] += 1
         
-        # Check if rebalancing is needed after updating load
         if self.needs_rebalancing():
             self.rebalance()
             
@@ -56,9 +54,8 @@ class HashRing:
             
         avg_load = total_load / len(self.servers)
         
-        # Check if any server deviates too much from average
         for server_load in self.server_load.values():
-            if server_load > 0:  # Only check active servers
+            if server_load > 0: 
                 deviation = abs(server_load - avg_load) / avg_load
                 if deviation > self.load_threshold:
                     return True
@@ -68,7 +65,6 @@ class HashRing:
         """Add a new server to the ring."""
         if server not in self.servers:
             self.servers.add(server)
-            # Rebalance affected keys
             self.populate_ring()
             self.rebalance()
 
@@ -76,7 +72,6 @@ class HashRing:
         """Remove a server from the ring."""
         if server in self.servers:
             self.servers.remove(server)
-            # Rebalance affected keys
             self.populate_ring()
             self.rebalance()
             del self.server_load[server]
