@@ -88,10 +88,29 @@ class ProxyServer:
                         print(f"Failed to sync state to server {port}")
         except Exception as e:
             print(f"Error during post-failover sync: {e}")
+
+    def get_server_for_list(self, message):
+        """Determine the primary server for a list ID."""
+        try:
+            data = json.loads(message)
+            list_id = None
+            
+            if 'data' in data:
+                if isinstance(data['data'], dict):
+                    list_id = next(iter(data['data'].keys()), None)  
+                elif isinstance(data['data'], str):
+                    list_id = data['data']  
+            
+            if list_id:
+                return self.hash_ring.get_server(list_id)
+            
+            return self.hash_ring.get_server(message)
+        except:
+            return self.hash_ring.get_server(message)
     
 
     def start(self):
-        """Start the proxy server to route requests to the appropriate worker."""
+        """Modified start method to use list ID-based routing."""
         server = self.context.socket(zmq.REP)
         server.bind(f"tcp://*:{self.port}")
         print(f"Proxy Server running on port {self.port}")
@@ -104,7 +123,7 @@ class ProxyServer:
         while True:
             try:
                 message = server.recv_string()
-                primary_port = self.hash_ring.get_server(message)
+                primary_port = self.get_server_for_list(message)
                 
                 response_data = self.replicate_to_neighbors(message, primary_port)
                 
