@@ -1,16 +1,12 @@
 {
-    "6e724484-7ab7-4cc9-a56f-16e9d460299c": {
-        "name": "hello",
+    "7956b1bc-5a1a-48ec-8453-5a468dae6bfe": {
+        "name": "test",
         "deleted": false,
-        "items": [
-            {
-                "uuid": "230eccc5-bc40-4c0f-be62-08d1f546df9a",
-                "product_name": "banana",
-                "product_quantity": 10,
-                "deleted": false,
-                "bought": false,
-                "timestamp": 1
-            }
-        ]
+        "items": []
+    },
+    "d0290938-aaea-4c63-9f76-3da138f03812": {
+        "name": "test",
+        "deleted": false,
+        "items": []
     }
 }

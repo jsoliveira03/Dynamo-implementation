@@ -61,13 +61,10 @@ class Server:
             if action == "syncLists":
                 # Merge incoming data (either from client or proxy) into the server's state
                 self.shopping_list.merge(data)
-                print("3333333333")
                 # Save the merged state to the server's persistent storage
                 self._save_data()
-                print("444444444")  
                 # Respond with the updated server state (the merged shopping list)
                 response["lists"] = self.shopping_list.info()
-                print("5555555")
             else:
                 response = {"success": False, "error": "Invalid action requested"}
 
