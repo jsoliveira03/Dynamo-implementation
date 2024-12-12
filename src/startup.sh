@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # List of server ports
-SERVER_PORTS=(5501 5502 5503 5504 5505)
+SERVER_PORTS=(9001 9002 9003 9004 9005)
 
 # Stop any existing server processes
 for port in "${SERVER_PORTS[@]}"; do
@@ -18,18 +18,9 @@ sleep 2
 # Start the 5 server instances
 echo "Starting server instances..."
 
-for port in "${SERVER_PORTS[@]}"
-do
-    echo "Starting server on port $port..."
-    # Start each server in the background
-    # Ensure the server.py file is in the correct location or adjust the path
-    python3 server.py --port $port &
-done
+# Use exec to replace the shell process with proxy.py
+exec python3 proxy.py
 
-# Allow servers to start before the client interacts
-sleep 5
-
-# Notify that the servers are running
+# Notify user
 echo "Server instances started successfully."
-
 echo "To start the client, run 'python3 client.py' manually."
