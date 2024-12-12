@@ -1,26 +1,12 @@
 {
-    "9e82ab82-4460-4228-adbb-db87174c498e": {
-        "name": "aa",
+    "6e724484-7ab7-4cc9-a56f-16e9d460299c": {
+        "name": "hello",
         "deleted": false,
         "items": [
             {
-                "uuid": "3af44d4d-a0d7-4405-b3c7-3a2507bc6224",
-                "product_name": "a",
-                "product_quantity": 1,
-                "deleted": false,
-                "bought": false,
-                "timestamp": 1
-            }
-        ]
-    },
-    "9b62db91-5a53-4c10-8ff3-945fbd142538": {
-        "name": "a",
-        "deleted": false,
-        "items": [
-            {
-                "uuid": "e08d2247-618f-4218-b634-d5a9b9271dac",
-                "product_name": "a",
-                "product_quantity": 1,
+                "uuid": "230eccc5-bc40-4c0f-be62-08d1f546df9a",
+                "product_name": "banana",
+                "product_quantity": 10,
                 "deleted": false,
                 "bought": false,
                 "timestamp": 1

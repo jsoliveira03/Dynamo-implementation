@@ -29,7 +29,7 @@ class HashRing:
     def get_server(self, key):
         """Get the server responsible for the given key."""
         if not self.ring:
-            raise ValueError("Hash ring is empty")
+            raise ValueError("Hash ring is empty")      
             
         key_hash = self.hash_server(str(key))
         pos = bisect.bisect_right([h for h, _ in self.ring], key_hash)
@@ -159,20 +159,4 @@ class HashRing:
                 'neighbors': self.get_neighbors(server)
             }
         return status
-
-if __name__ == "__main__":
-    servers = [f'9001', '9002', '9003', '9004', '9005']
-    hash_ring = HashRing(servers)
-
-    test_keys = [f'key{i}' for i in range(20)]
-    for key in test_keys:
-        server = hash_ring.get_server(key)
-        print(f"Key '{key}' is assigned to server: {server}")
-        neighbors = hash_ring.get_neighbors(key)
-        print(f"Backup servers for '{key}': {neighbors}")
-
-    print("\nLoad distribution:")
-    print(hash_ring.get_load_distribution())
-
-    print("\nServer status:")
-    print(hash_ring.get_server_status())
+    
