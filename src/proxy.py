@@ -97,6 +97,8 @@ class ProxyServer:
         print(f"Proxy Server running on port {self.port}")
         
         self.initialize_worker_sockets()
+        listt = list()
+
         
         #health_check_thread = threading.Thread(target=self.check_server_health, daemon=True)
         #health_check_thread.start()
@@ -121,15 +123,27 @@ class ProxyServer:
                             primary_port
                         )
 
+                        listt.append({list_id: list_data})                     
 
                         # Log the response or handle failures
                         if response_data:
                             print(f"Successfully handled replication for list {list_id}")
                         else:
                             print(f"Failed to replicate list {list_id}")
+
+                    lists_dict = {}
+                    for d in listt:
+                        lists_dict.update(d) 
+
+                    response = {
+                        "success": True,
+                        "lists": lists_dict  
+                    }
                     
                     # Send the mapping of list IDs to primary ports back as the response
-                    server.send_string(json.dumps({"success": True, "lists": {'d0290938-aaea-4c63-9f76-3da138f03812': {'name': 'test', 'deleted': False, 'items': []}}}))
+                    print("\n\n\ndoing rn set thing, :DMD NDS  DS SN: ", response)
+                    server.send_string(json.dumps(response))
+                    listt = list()
                 else:
                     # Handle other actions or invalid messages
                     response = {"success": False, "error": "Invalid action or data format"}
