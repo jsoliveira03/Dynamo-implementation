@@ -25,9 +25,10 @@ class ProxyServer:
         """Replicate data to neighbor servers."""
         neighbors = self.hash_ring.get_neighbors(message)
         responses = []
-        
+        print("1111111111")
         # First send to primary
         try:
+            print("222222222")
             primary_socket = self.worker_sockets[primary_port]
             primary_socket.send_string(message)
             response = primary_socket.recv_string()
@@ -39,6 +40,7 @@ class ProxyServer:
         # Then replicate to neighbors
         for neighbor_port in neighbors:
             try:
+                print("33333333")
                 neighbor_socket = self.worker_sockets[neighbor_port]
                 neighbor_socket.send_string(message)
                 response = neighbor_socket.recv_string()
@@ -47,7 +49,9 @@ class ProxyServer:
             except zmq.error.Again:
                 print(f"Failed to replicate to neighbor {neighbor_port}")
                 continue
-
+                
+        print("444444444")
+        print(responses)
         return responses[0] if responses else None
 
     def handle_worker_failure(self, primary_port, message):
@@ -88,25 +92,6 @@ class ProxyServer:
                         print(f"Failed to sync state to server {port}")
         except Exception as e:
             print(f"Error during post-failover sync: {e}")
-
-    def get_server_for_list(self, message):
-        """Determine the primary server for a list ID."""
-        try:
-            data = json.loads(message)
-            list_id = None
-            
-            if 'data' in data:
-                if isinstance(data['data'], dict):
-                    list_id = next(iter(data['data'].keys()), None)  
-                elif isinstance(data['data'], str):
-                    list_id = data['data']  
-            
-            if list_id:
-                return self.hash_ring.get_server(list_id)
-            
-            return self.hash_ring.get_server(message)
-        except:
-            return self.hash_ring.get_server(message)
     
 
     def start(self):
@@ -123,22 +108,45 @@ class ProxyServer:
         while True:
             try:
                 message = server.recv_string()
-                primary_port = self.get_server_for_list(message)
-                
-                response_data = self.replicate_to_neighbors(message, primary_port)
-                
-                if response_data:
-                    server.send_string(json.dumps(response_data))
+
+                # Parse the incoming message
+                parsed_message = json.loads(message)
+                action = parsed_message.get("action", "")
+                data = parsed_message.get("data", {})
+
+                if action == "syncLists" and isinstance(data, dict):
+                    primary_ports = {}  # To map list IDs to their primary servers
+                    for list_id, list_data in data.items():
+                        primary_port = self.hash_ring.get_server(list_id)
+                        primary_ports[list_id] = primary_port
+
+                        # Replicate each list to its neighbors
+                        response_data = self.replicate_to_neighbors(
+                            message,
+                            primary_port
+                        )
+
+
+                        # Log the response or handle failures
+                        if response_data:
+                            print(f"Successfully handled replication for list {list_id}")
+                        else:
+                            print(f"Failed to replicate list {list_id}")
+                    
+                    # Send the mapping of list IDs to primary ports back as the response
+                    server.send_string(json.dumps({"success": True, "primary_ports": primary_ports}))
                 else:
-                    response = self.handle_worker_failure(primary_port, message)
-                    server.send_string(response)
-                
+                    # Handle other actions or invalid messages
+                    response = {"success": False, "error": "Invalid action or data format"}
+                    server.send_string(json.dumps(response))
+
                 print("\nCurrent server status:")
                 print(self.hash_ring.get_server_status())
-                
+
             except Exception as e:
                 error_response = json.dumps({"success": False, "error": str(e)})
                 server.send_string(error_response)
+
 
     def check_server_health(self, check_interval=10):
         """Periodically check server health and rebalance if needed."""
