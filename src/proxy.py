@@ -102,9 +102,8 @@ class ProxyServer:
         
         self.initialize_worker_sockets()
         
-        health_check_thread = threading.Thread(target=self.check_server_health, daemon=True)
-        health_check_thread.start()
-
+        #health_check_thread = threading.Thread(target=self.check_server_health, daemon=True)
+        #health_check_thread.start()
         while True:
             try:
                 message = server.recv_string()
@@ -134,7 +133,9 @@ class ProxyServer:
                             print(f"Failed to replicate list {list_id}")
                     
                     # Send the mapping of list IDs to primary ports back as the response
-                    server.send_string(json.dumps({"success": True, "primary_ports": primary_ports}))
+                    print("DATAAAAAAA")
+                    print(data)
+                    server.send_string(json.dumps({"success": True, "lists" : data}))
                 else:
                     # Handle other actions or invalid messages
                     response = {"success": False, "error": "Invalid action or data format"}
@@ -144,6 +145,7 @@ class ProxyServer:
                 print(self.hash_ring.get_server_status())
 
             except Exception as e:
+                print("entra aqui crl")
                 error_response = json.dumps({"success": False, "error": str(e)})
                 server.send_string(error_response)
 
