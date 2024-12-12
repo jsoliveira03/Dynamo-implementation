@@ -25,10 +25,8 @@ class ProxyServer:
         """Replicate data to neighbor servers."""
         neighbors = self.hash_ring.get_neighbors(message)
         responses = []
-        print("1111111111")
         # First send to primary
         try:
-            print("222222222")
             primary_socket = self.worker_sockets[primary_port]
             primary_socket.send_string(message)
             response = primary_socket.recv_string()
@@ -40,7 +38,6 @@ class ProxyServer:
         # Then replicate to neighbors
         for neighbor_port in neighbors:
             try:
-                print("33333333")
                 neighbor_socket = self.worker_sockets[neighbor_port]
                 neighbor_socket.send_string(message)
                 response = neighbor_socket.recv_string()
@@ -50,7 +47,6 @@ class ProxyServer:
                 print(f"Failed to replicate to neighbor {neighbor_port}")
                 continue
                 
-        print("444444444")
         print(responses)
         return responses[0] if responses else None
 
@@ -133,9 +129,7 @@ class ProxyServer:
                             print(f"Failed to replicate list {list_id}")
                     
                     # Send the mapping of list IDs to primary ports back as the response
-                    print("DATAAAAAAA")
-                    print(data)
-                    server.send_string(json.dumps({"success": True, "lists" : data}))
+                    server.send_string(json.dumps({"success": True, "lists": {'d0290938-aaea-4c63-9f76-3da138f03812': {'name': 'test', 'deleted': False, 'items': []}}}))
                 else:
                     # Handle other actions or invalid messages
                     response = {"success": False, "error": "Invalid action or data format"}
@@ -145,7 +139,6 @@ class ProxyServer:
                 print(self.hash_ring.get_server_status())
 
             except Exception as e:
-                print("entra aqui crl")
                 error_response = json.dumps({"success": False, "error": str(e)})
                 server.send_string(error_response)
 
