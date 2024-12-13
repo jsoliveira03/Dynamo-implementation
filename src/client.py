@@ -6,19 +6,24 @@ import time
 from crdt.ShoppingList import ShoppingList
 
 CONFIG = {
-    "json_file": "./client_data.json",
+    "data_dir": "./data_client/",  # Directory for client data files
     "proxy_port": 9000,  # The port where the proxy is running
     "sync_interval": 15,
 }
 
 class ShoppingListClient:
-    def __init__(self):
-        self.shopping_list = ShoppingList(owner="client")
+    def __init__(self, username):
+        self.username = username
+        self.json_file = os.path.join(CONFIG["data_dir"], f"{username}_data.json")
+        self.shopping_list = ShoppingList(owner=username)
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
         
         self.sync_lock = threading.Lock()
         self.running = True
+        
+        # Create data directory if it doesn't exist
+        os.makedirs(CONFIG["data_dir"], exist_ok=True)
         
         # Load initial data
         self._load_local_data()
@@ -29,26 +34,25 @@ class ShoppingListClient:
 
     def _load_local_data(self):
         """Load local shopping list data from file."""
-        if os.path.exists(CONFIG["json_file"]):
+        if os.path.exists(self.json_file):
             try:
-                with open(CONFIG["json_file"], "r") as file:
+                with open(self.json_file, "r") as file:
                     content = file.read().strip()
                     if content:
-                        data = json.loads(content)  # Parse JSON data
-                        self.shopping_list.merge(data)  # Merge with local shopping list
+                        data = json.loads(content)
+                        self.shopping_list.merge(data)
                     else:
-                        print(f"Warning: {CONFIG['json_file']} is empty, initializing with empty data.")
+                        print(f"Warning: {self.json_file} is empty, initializing with empty data.")
             except json.JSONDecodeError:
-                print(f"Warning: {CONFIG['json_file']} contains invalid JSON, initializing with empty data.")
+                print(f"Warning: {self.json_file} contains invalid JSON, initializing with empty data.")
             except Exception as e:
-                print(f"Error loading data from {CONFIG['json_file']}: {e}")
+                print(f"Error loading data from {self.json_file}: {e}")
         else:
-            print(f"Warning: {CONFIG['json_file']} does not exist, initializing with empty data.")
-            # You can optionally initialize an empty shopping list here if needed
+            print(f"Creating new data file for user {self.username}")
 
     def _save_local_data(self):
         """Save shopping list data to a JSON file."""
-        with open(CONFIG["json_file"], "w") as file:
+        with open(self.json_file, "w") as file:
             json.dump(self.shopping_list.info(), file, indent=4)
 
     def _send_request(self, action, data):
@@ -66,6 +70,8 @@ class ShoppingListClient:
         except Exception as e:
             print(f"Error communicating with proxy: {e}")
             return {"success": False, "error": str(e)}
+        finally:
+            self.socket.disconnect(f"tcp://localhost:{CONFIG['proxy_port']}")
 
     def _auto_sync(self):
         """Background thread for automatic synchronization."""
@@ -77,17 +83,15 @@ class ShoppingListClient:
         """Synchronize with the proxy and handle conflicts."""
         with self.sync_lock:
             try:
-                # Fetch the server's state and merge with local state
                 response = self._send_request("syncLists", self.shopping_list.info())
                 if response.get("success"):
-
                     self.shopping_list.merge(response.get("lists"))
                     self._save_local_data()
-                    print("\nSynced with server successfully.")
+                    print(f"\nSynced user {self.username} with server successfully.")
                 else:
-                    print(f"\nFailed to sync with server: {response.get('error')}")
+                    print(f"\nFailed to sync user {self.username} with server: {response.get('error')}")
             except Exception as e:
-                print(f"\nSync error: {e}")
+                print(f"\nSync error for user {self.username}: {e}")
 
     def create_list(self, name):
         """Create a new shopping list."""
@@ -131,8 +135,18 @@ class ShoppingListClient:
         self.socket.close()
         self.context.term()
 
+def get_username():
+    """Get username from user and validate it."""
+    while True:
+        username = input("Enter your username (alphanumeric characters only): ").strip()
+        if username.isalnum():
+            return username
+        print("Invalid username. Please use only letters and numbers.")
+
 if __name__ == "__main__":
-    client = ShoppingListClient()
+    username = get_username()
+    client = ShoppingListClient(username)
+    print(f"Welcome, {username}!")
     
     while True:
         print("\nOptions:")
@@ -180,7 +194,7 @@ if __name__ == "__main__":
 
             elif choice == "6":
                 lists = client.get_lists()
-                print("\nCurrent Shopping Lists:")
+                print(f"\nCurrent Shopping Lists for {username}:")
                 for list_id, details in lists.items():
                     print(f"List ID: {list_id}, Name: {details['name']}")
                     for item in details["items"]:
@@ -196,7 +210,7 @@ if __name__ == "__main__":
                     print(f"Error: {e}")
 
             elif choice == "8":
-                print("Exiting.")
+                print(f"Goodbye, {username}!")
                 client.shutdown()
                 break
 
