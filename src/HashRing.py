@@ -4,7 +4,7 @@ from collections import defaultdict
 import random
 
 class HashRing:
-    def __init__(self, servers, replicas=3):
+    def __init__(self, servers, replicas=10):
         self.replicas = replicas
         self.servers = set(servers)  
         self.ring = []  
