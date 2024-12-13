@@ -80,6 +80,7 @@ class ShoppingListClient:
                 # Fetch the server's state and merge with local state
                 response = self._send_request("syncLists", self.shopping_list.info())
                 if response.get("success"):
+
                     self.shopping_list.merge(response.get("lists"))
                     self._save_local_data()
                     print("\nSynced with server successfully.")
