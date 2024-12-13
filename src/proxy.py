@@ -22,15 +22,21 @@ class ProxyServer:
             self.worker_sockets[port] = socket
 
     def replicate_to_neighbors(self, message, primary_port):
-        """Replicate data to neighbor servers."""
+        """Replicate data to neighbor servers using SyncLists action."""
         neighbors = self.hash_ring.get_neighbors(message)
         responses = []
+        print("Primaryyyyyy")
+        print(primary_port)
         # First send to primary
         try:
             primary_socket = self.worker_sockets[primary_port]
-            primary_socket.send_string(message)
+            primary_request = {
+                "action": "syncLists",
+                "data": json.loads(message)["data"]  # Extract the data part
+            }
+            primary_socket.send_string(json.dumps(primary_request))
             response = primary_socket.recv_string()
-            responses.append(json.loads(response))
+            responses.append(json.loads(response))       
         except zmq.error.Again:
             print(f"Primary server {primary_port} failed during replication")
             return None
@@ -39,16 +45,20 @@ class ProxyServer:
         for neighbor_port in neighbors:
             try:
                 neighbor_socket = self.worker_sockets[neighbor_port]
-                neighbor_socket.send_string(message)
+                neighbor_request = {
+                    "action": "syncLists",
+                    "data": json.loads(message)["data"]  # Extract the data part
+                }
+                neighbor_socket.send_string(json.dumps(neighbor_request))
                 response = neighbor_socket.recv_string()
                 responses.append(json.loads(response))
                 print(f"Successfully replicated to neighbor {neighbor_port}")
             except zmq.error.Again:
                 print(f"Failed to replicate to neighbor {neighbor_port}")
                 continue
-                
-        print(responses)
+        
         return responses[0] if responses else None
+
 
     def handle_worker_failure(self, primary_port, message):
         """Handle worker failure by trying backup servers."""
@@ -97,11 +107,8 @@ class ProxyServer:
         print(f"Proxy Server running on port {self.port}")
         
         self.initialize_worker_sockets()
-        listt = list()
+        listt = []
 
-        
-        #health_check_thread = threading.Thread(target=self.check_server_health, daemon=True)
-        #health_check_thread.start()
         while True:
             try:
                 message = server.recv_string()
@@ -123,7 +130,11 @@ class ProxyServer:
                             primary_port
                         )
 
-                        listt.append({list_id: list_data})                     
+                        # Append the response_data for each list
+                        processed_lists = response_data["lists"]
+                        for resp_list_id, resp_list_data in processed_lists.items():
+                            listt.append({resp_list_id: resp_list_data})
+
 
                         # Log the response or handle failures
                         if response_data:
@@ -133,17 +144,16 @@ class ProxyServer:
 
                     lists_dict = {}
                     for d in listt:
-                        lists_dict.update(d) 
+                        lists_dict.update(d)
 
                     response = {
                         "success": True,
-                        "lists": lists_dict  
+                        "lists": lists_dict
                     }
                     
                     # Send the mapping of list IDs to primary ports back as the response
-                    print("\n\n\ndoing rn set thing, :DMD NDS  DS SN: ", response)
                     server.send_string(json.dumps(response))
-                    listt = list()
+                    listt = []
                 else:
                     # Handle other actions or invalid messages
                     response = {"success": False, "error": "Invalid action or data format"}
@@ -155,6 +165,8 @@ class ProxyServer:
             except Exception as e:
                 error_response = json.dumps({"success": False, "error": str(e)})
                 server.send_string(error_response)
+
+
 
 
     def check_server_health(self, check_interval=10):
