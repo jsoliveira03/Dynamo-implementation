@@ -5,17 +5,12 @@ import os
 import threading
 from crdt.ShoppingList import ShoppingList  # Assuming you have a ShoppingList class
 
-CONFIG = {
-    "json_folder": "./data/",
-    "update_interval": 15,  # Periodic update interval in seconds
-}
-
 class Server:
     def __init__(self, port):
         self.port = port
         self.shopping_list = ShoppingList(owner=port)  # Initialize ShoppingList
         # Set a unique JSON file path based on the server's port number
-        self.json_path = f"{CONFIG['json_folder']}lists_{self.port}.json"
+        self.json_path = f"./data/lists_{self.port}.json"
         self.lock = threading.Lock()
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
@@ -39,7 +34,7 @@ class Server:
             except Exception as e:
                 print(f"Error loading data from {self.json_path}: {e}")
         else:
-            os.makedirs(CONFIG['json_folder'], exist_ok=True)
+            os.makedirs("./data/", exist_ok=True)
             print(f"Warning: {self.json_path} does not exist, initializing with empty data.")
 
     def _save_data(self):

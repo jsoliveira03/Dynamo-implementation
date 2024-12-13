@@ -5,16 +5,10 @@ import threading
 import time
 from crdt.ShoppingList import ShoppingList
 
-CONFIG = {
-    "data_dir": "./data_client/",  # Directory for client data files
-    "proxy_port": 9000,  # The port where the proxy is running
-    "sync_interval": 15,
-}
-
 class ShoppingListClient:
     def __init__(self, username):
         self.username = username
-        self.json_file = os.path.join(CONFIG["data_dir"], f"{username}_data.json")
+        self.json_file = os.path.join(f"./data_client/{username}_data.json")
         self.shopping_list = ShoppingList(owner=username)
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
@@ -22,8 +16,7 @@ class ShoppingListClient:
         self.sync_lock = threading.Lock()
         self.running = True
         
-        # Create data directory if it doesn't exist
-        os.makedirs(CONFIG["data_dir"], exist_ok=True)
+        os.makedirs("./data_client/", exist_ok=True)
         
         # Load initial data
         self._load_local_data()
@@ -60,7 +53,7 @@ class ShoppingListClient:
         message = {"action": action, "data": data}
         try:
             # Connect to the proxy that will route the request to the correct server
-            self.socket.connect(f"tcp://localhost:{CONFIG['proxy_port']}")
+            self.socket.connect(f"tcp://localhost:{9000}")
             self.socket.send_string(json.dumps(message))
             response = self.socket.recv_string()
             return json.loads(response)
@@ -71,12 +64,12 @@ class ShoppingListClient:
             print(f"Error communicating with proxy: {e}")
             return {"success": False, "error": str(e)}
         finally:
-            self.socket.disconnect(f"tcp://localhost:{CONFIG['proxy_port']}")
+            self.socket.disconnect(f"tcp://localhost:{9000}")
 
     def _auto_sync(self):
         """Background thread for automatic synchronization."""
         while self.running:
-            time.sleep(CONFIG["sync_interval"])
+            time.sleep(15)
             self.sync_with_server()
 
     def sync_with_server(self):
