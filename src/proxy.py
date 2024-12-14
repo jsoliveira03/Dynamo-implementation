@@ -2,62 +2,104 @@ import zmq
 import threading
 import json
 from HashRing import HashRing
-from server import Server  # Importing the worker server class
+from server import Server
 import time
 
 
 class ProxyServer:
     def __init__(self, port, worker_ports):
         self.port = port
-        self.worker_ports = worker_ports
+        self.worker_ports = set(worker_ports)
         self.hash_ring = HashRing(worker_ports, replicas=10)
         self.worker_sockets = {}
         self.context = zmq.Context()
+        self.running = True
 
     def initialize_worker_sockets(self):
-        """Initialize connections to all worker servers."""
+        """Initialize connections to all worker servers with timeout."""
         for port in self.worker_ports:
             socket = self.context.socket(zmq.REQ)
+            socket.setsockopt(zmq.RCVTIMEO, 5000)
+            socket.setsockopt(zmq.SNDTIMEO, 5000)
             socket.connect(f"tcp://localhost:{port}")
             self.worker_sockets[port] = socket
 
+    def try_worker_request(self, port, message, retries=2):
+        """Attempt to send a request to a worker with retries."""
+        for attempt in range(retries):
+            try:
+                socket = self.worker_sockets[port]
+                socket.send_string(json.dumps(message))
+                return json.loads(socket.recv_string())
+            except (zmq.error.Again, zmq.error.ZMQError) as e:
+                if attempt == retries - 1:
+                    print(f"Server {port} is unresponsive after {retries} attempts")
+                    self.handle_server_failure(port)
+                    return None
+                time.sleep(0.5)
+        return None
+    
+    def handle_server_failure(self, failed_port):
+        """Handle a server failure by removing it and redistributing data."""
+        if failed_port in self.worker_ports:
+            print(f"Removing failed server {failed_port}")
+            self.worker_ports.remove(failed_port)
+            self.hash_ring.remove_server(failed_port)
+            if failed_port in self.worker_sockets:
+                self.worker_sockets[failed_port].close()
+                del self.worker_sockets[failed_port]
+            
+            if self.worker_ports:
+                self.redistribute_after_failure()
+
+    def redistribute_after_failure(self):
+        """Redistribute data among remaining servers."""
+        for port in self.worker_ports:
+            response = self.try_worker_request(port, {"action": "get_state"})
+            if response:
+                for target_port in self.worker_ports:
+                    if target_port != port:
+                        self.try_worker_request(target_port, {
+                            "action": "sync_state",
+                            "data": response
+                        })
+                break
+
     def replicate_to_neighbors(self, message, primary_port):
-        """Replicate data to neighbor servers using SyncLists action."""
+        """Replicate data to neighbor servers with failure handling."""
+        if primary_port not in self.worker_ports:
+            return self.handle_primary_failure(message)
+            
+        parsed_message = json.loads(message)
         neighbors = self.hash_ring.get_neighbors(message)
         responses = []
-        print("Primaryyyyyy")
-        print(primary_port)
-        # First send to primary
-        try:
-            primary_socket = self.worker_sockets[primary_port]
-            primary_request = {
-                "action": "syncLists",
-                "data": json.loads(message)["data"]  # Extract the data part
-            }
-            primary_socket.send_string(json.dumps(primary_request))
-            response = primary_socket.recv_string()
-            responses.append(json.loads(response))       
-        except zmq.error.Again:
-            print(f"Primary server {primary_port} failed during replication")
-            return None
 
-        # Then replicate to neighbors
-        for neighbor_port in neighbors:
-            try:
-                neighbor_socket = self.worker_sockets[neighbor_port]
-                neighbor_request = {
-                    "action": "syncLists",
-                    "data": json.loads(message)["data"]  # Extract the data part
-                }
-                neighbor_socket.send_string(json.dumps(neighbor_request))
-                response = neighbor_socket.recv_string()
-                responses.append(json.loads(response))
-                print(f"Successfully replicated to neighbor {neighbor_port}")
-            except zmq.error.Again:
-                print(f"Failed to replicate to neighbor {neighbor_port}")
-                continue
+        primary_response = self.try_worker_request(primary_port, {
+            "action": "syncLists",
+            "data": parsed_message["data"]
+        })
         
+        if primary_response:
+            responses.append(primary_response)
+            for neighbor_port in neighbors:
+                if neighbor_port in self.worker_ports:
+                    neighbor_response = self.try_worker_request(neighbor_port, {
+                        "action": "syncLists",
+                        "data": parsed_message["data"]
+                    })
+                    if neighbor_response:
+                        responses.append(neighbor_response)
+
         return responses[0] if responses else None
+    
+    def handle_primary_failure(self, message):
+        """Handle primary server failure by promoting a neighbor."""
+        parsed_message = json.loads(message)
+        for list_id in parsed_message.get("data", {}).keys():
+            new_primary = self.hash_ring.get_server(list_id)
+            if new_primary in self.worker_ports:
+                return self.replicate_to_neighbors(message, new_primary)
+        return None
 
 
     def handle_worker_failure(self, primary_port, message):
@@ -101,94 +143,65 @@ class ProxyServer:
     
 
     def start(self):
-        """Modified start method to use list ID-based routing."""
-        server = self.context.socket(zmq.REP)
-        server.bind(f"tcp://*:{self.port}")
+        """Main server loop with improved error handling."""
+        server_socket = self.context.socket(zmq.REP)
+        server_socket.bind(f"tcp://*:{self.port}")
         print(f"Proxy Server running on port {self.port}")
         
         self.initialize_worker_sockets()
-        listt = []
+        
+        health_check_thread = threading.Thread(target=self.check_server_health)
+        health_check_thread.daemon = True
+        health_check_thread.start()
 
-        while True:
+        while self.running:
             try:
-                message = server.recv_string()
-
-                # Parse the incoming message
+                message = server_socket.recv_string()
                 parsed_message = json.loads(message)
-                action = parsed_message.get("action", "")
-                data = parsed_message.get("data", {})
+                response = {"success": False, "error": "Invalid action"}
 
-                if action == "syncLists" and isinstance(data, dict):
-                    primary_ports = {}  # To map list IDs to their primary servers
-                    for list_id, list_data in data.items():
+                if parsed_message.get("action") == "syncLists":
+                    processed_lists = {}
+                    for list_id, list_data in parsed_message.get("data", {}).items():
                         primary_port = self.hash_ring.get_server(list_id)
-                        primary_ports[list_id] = primary_port
+                        replication_response = self.replicate_to_neighbors(message, primary_port)
+                        
+                        if replication_response and "lists" in replication_response:
+                            processed_lists.update(replication_response["lists"])
 
-                        # Replicate each list to its neighbors
-                        response_data = self.replicate_to_neighbors(
-                            message,
-                            primary_port
-                        )
-
-                        # Append the response_data for each list
-                        processed_lists = response_data["lists"]
-                        print("List data")
-                        print(list_data)
-                        for resp_list_id, resp_list_data in processed_lists.items():
-                            if(list_id == resp_list_id):
-                                listt.append({resp_list_id: resp_list_data})
-                                
-
-                        # Log the response or handle failures
-                        if response_data:
-                            print(f"Successfully handled replication for list {list_id}")
-                        else:
-                            print(f"Failed to replicate list {list_id}")
-
-                    lists_dict = {}
-                    for d in listt:
-                        lists_dict.update(d)
-
-                    print("response dict")
-                    print(lists_dict)
                     response = {
-                        "success": True,
-                        "lists": lists_dict
+                        "success": bool(processed_lists),
+                        "lists": processed_lists
                     }
-                    
-                    # Send the mapping of list IDs to primary ports back as the response
-                    server.send_string(json.dumps(response))
-                    listt = []
-                else:
-                    # Handle other actions or invalid messages
-                    response = {"success": False, "error": "Invalid action or data format"}
-                    server.send_string(json.dumps(response))
 
-                print("\nCurrent server status:")
-                print(self.hash_ring.get_server_status())
+                server_socket.send_string(json.dumps(response))
 
+            except zmq.error.ZMQError as e:
+                print(f"ZMQ Error in main loop: {e}")
+                continue
             except Exception as e:
-                error_response = json.dumps({"success": False, "error": str(e)})
-                server.send_string(error_response)
+                print(f"Unexpected error in main loop: {e}")
+                try:
+                    server_socket.send_string(json.dumps({
+                        "success": False,
+                        "error": str(e)
+                    }))
+                except:
+                    pass
+                continue
 
-
-
-
-    def check_server_health(self, check_interval=10):
-        """Periodically check server health and rebalance if needed."""
-        while True:
+    def check_server_health(self, check_interval=5):
+        """Periodic health check with improved error handling."""
+        while self.running:
             time.sleep(check_interval)
             for port in list(self.worker_ports):
                 try:
-                    socket = self.worker_sockets[port]
-                    socket.send_string(json.dumps({"action": "health_check"}))
-                    socket.recv_string()
-                except zmq.error.Again:
-                    print(f"Server {port} appears to be down, removing from ring...")
-                    self.hash_ring.remove_server(port)
-                    del self.worker_sockets[port]
-                    self.worker_ports.remove(port)
-                    self.sync_after_server_removal(port)
+                    response = self.try_worker_request(port, {"action": "health_check"})
+                    if not response:
+                        self.handle_server_failure(port)
+                except Exception as e:
+                    print(f"Health check error for server {port}: {e}")
+                    self.handle_server_failure(port)
 
     def sync_after_server_removal(self, failed_port):
         """Ensure data is properly redistributed after a server fails."""
@@ -236,10 +249,15 @@ def main():
     for port in worker_ports:
         worker_server = Server(port)
         worker_process = threading.Thread(target=worker_server.run)
+        worker_process.daemon = True
         worker_process.start()
         worker_processes.append(worker_process)
 
-    proxy_server.start()
+    try:
+        proxy_server.start()
+    except KeyboardInterrupt:
+        print("Shutting down proxy server...")
+        proxy_server.running = False
 
 
 if __name__ == "__main__":

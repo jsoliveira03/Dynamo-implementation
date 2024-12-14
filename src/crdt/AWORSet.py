@@ -1,13 +1,12 @@
 import uuid
-import time
 from crdt.PN_Counter import PNCounter
 
 class AWORSet:
     def __init__(self, owner):
         self.owner = owner
-        self.items = {}  # Stores items with their states (uuid, name, quantity)
-        self.adds = {}   # Tracks added items (with timestamps)
-        self.removes = {}  # Tracks removed items (tombstones)
+        self.items = {}
+        self.adds = {}
+        self.removes = {}
         self.bought = {}
     
     def _get_next_timestamp(self):
@@ -38,11 +37,10 @@ class AWORSet:
     def add(self, product_name, quantity, product_uuid=None, deleted=False, bought=False, timestamp=None):
         """Add a product to the set."""
         if product_uuid is None:
-            product_uuid = str(uuid.uuid4())  # Generate a unique UUID if none provided
+            product_uuid = str(uuid.uuid4())
         if timestamp is None:
-            timestamp = self._get_next_timestamp()  # Use logical timestamp if not provided
+            timestamp = self._get_next_timestamp()
 
-        # Only add if it's not removed, or the new timestamp is greater than the removal timestamp
         if product_uuid not in self.removes or timestamp > self.removes[product_uuid].get('timestamp', 0):
             if product_uuid not in self.items:
                 self.items[product_uuid] = {
@@ -79,7 +77,6 @@ class AWORSet:
         """Mark a product as bought and set quantity to 0."""
         if product_uuid in self.items:
             timestamp = self._get_next_timestamp()
-            # Store bought info
             self.bought[product_uuid] = {
                 'timestamp': timestamp,
                 'type': 'bought',
@@ -101,24 +98,19 @@ class AWORSet:
 
     def merge(self, other):
         """Merge another AWORSet into this one."""
-        # Merge removals first - more aggressive tombstone propagation
         for product_uuid, remove_info in other.removes.items():
             if (product_uuid not in self.removes or 
                 remove_info['timestamp'] > self.removes[product_uuid]['timestamp']):
                 self.removes[product_uuid] = remove_info.copy()
                 
-                # Ensure deletion is handled properly, even on client
                 if product_uuid in self.items:
                     self.items[product_uuid]['deleted'] = True
                     self.items[product_uuid]['timestamp'] = remove_info['timestamp']
                     
-                    # For the client, the item should be removed locally when deleted
                     if self.owner == "client":
                         del self.items[product_uuid]
 
-        # Merge additions
         for product_uuid, timestamp in other.adds.items():
-            # Conditions for adding/updating the item
             is_not_deleted = (
                 product_uuid not in self.removes or 
                 self.removes[product_uuid]['type'] != 'deleted'
@@ -136,10 +128,8 @@ class AWORSet:
                 if product_uuid in other.items:
                     self.items[product_uuid] = other.items[product_uuid].copy()
 
-        # Merge item quantities
         for product_uuid, item in list(self.items.items()):
             if product_uuid in other.items:
-                # Only merge if not deleted
                 if not item.get('deleted', False):
                     item['product_quantity'].merge(other.items[product_uuid]['product_quantity'])
 
