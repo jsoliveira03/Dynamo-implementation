@@ -60,6 +60,12 @@ class Server:
                 self._save_data()
                 # Respond with the updated server state (the merged shopping list)
                 response["lists"] = self.shopping_list.info()
+            elif action == "getListById":
+                list_id = data.get("list_id")
+                if list_id and list_id in self.shopping_list.info():
+                    response["list"] = self.shopping_list.info()[list_id]
+                else:
+                    response = {"success": False, "error": "List ID not found"}
             else:
                 response = {"success": False, "error": "Invalid action requested"}
 

@@ -12,5 +12,19 @@
                 "timestamp": 1
             }
         ]
+    },
+    "2a365261-71da-41d7-a522-4cb338c62e2a": {
+        "name": "test",
+        "deleted": false,
+        "items": [
+            {
+                "uuid": "8de06230-0b34-4341-845b-a895888139d7",
+                "product_name": "arroz",
+                "product_quantity": 2,
+                "deleted": false,
+                "bought": false,
+                "timestamp": 1
+            }
+        ]
     }
 }

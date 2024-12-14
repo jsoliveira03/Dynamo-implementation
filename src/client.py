@@ -211,9 +211,22 @@ if __name__ == "__main__":
                 except ValueError as e:
                     print(f"Error: {e}")
 
-            elif choice == "8":
+            elif choice == "8":  # Import List
                 list_id = input("Enter list ID to import: ")
-                
+                try:
+                    # Send a request to the proxy to fetch the list by ID
+                    response = client._send_request("getListById", {"list_id": list_id})
+                    
+                    if response.get("success"):
+                        list_data = response.get("list")
+                        # Merge or store the fetched list locally
+                        client.shopping_list.merge({list_id: list_data})
+                        client._save_local_data()
+                        print(f"Successfully imported list {list_id}.")
+                    else:
+                        print(f"Failed to import list: {response.get('error')}")
+                except Exception as e:
+                    print(f"Error importing list: {e}")
 
 
             elif choice == "9":

@@ -137,7 +137,7 @@ class ProxyServer:
                         for resp_list_id, resp_list_data in processed_lists.items():
                             if(list_id == resp_list_id):
                                 listt.append({resp_list_id: resp_list_data})
-                                
+
 
                         # Log the response or handle failures
                         if response_data:
@@ -159,6 +159,43 @@ class ProxyServer:
                     # Send the mapping of list IDs to primary ports back as the response
                     server.send_string(json.dumps(response))
                     listt = []
+                elif action == "getListById" and isinstance(data, dict):
+                    list_id = data.get("list_id")
+                    if list_id:
+                        # Get the primary server responsible for the list ID
+                        primary_port = self.hash_ring.get_server(list_id)
+                        try:
+                            # Fetch the list from the identified server
+                            primary_socket = self.worker_sockets[primary_port]
+                            primary_request = {
+                                "action": "getListById",
+                                "data": {"list_id": list_id}
+                            }
+                            primary_socket.send_string(json.dumps(primary_request))
+                            response = primary_socket.recv_string()
+                            server_response = json.loads(response)
+
+                            if server_response.get("success"):
+                                server.send_string(json.dumps({
+                                    "success": True,
+                                    "list": server_response.get("list")
+                                }))
+                            else:
+                                server.send_string(json.dumps({
+                                    "success": False,
+                                    "error": "Failed to fetch list from server"
+                                }))
+                        except zmq.error.Again:
+                            server.send_string(json.dumps({
+                                "success": False,
+                                "error": f"Server {primary_port} is unavailable"
+                            }))
+                    else:
+                        server.send_string(json.dumps({
+                            "success": False,
+                            "error": "List ID is missing"
+                        }))
+
                 else:
                     # Handle other actions or invalid messages
                     response = {"success": False, "error": "Invalid action or data format"}
