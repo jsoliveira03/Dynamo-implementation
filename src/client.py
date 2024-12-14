@@ -18,10 +18,8 @@ class ShoppingListClient:
         
         os.makedirs("./data_client/", exist_ok=True)
         
-        # Load initial data
         self._load_local_data()
         
-        # Start sync thread for automatic synchronization
         self.sync_thread = threading.Thread(target=self._auto_sync, daemon=True)
         self.sync_thread.start()
 
@@ -52,7 +50,6 @@ class ShoppingListClient:
         """Send a request to the proxy and receive a response."""
         message = {"action": action, "data": data}
         try:
-            # Connect to the proxy that will route the request to the correct server
             self.socket.connect(f"tcp://localhost:{9000}")
             self.socket.send_string(json.dumps(message))
             response = self.socket.recv_string()
@@ -80,7 +77,6 @@ class ShoppingListClient:
                 if response.get("success"):
                     self.shopping_list.merge(response.get("lists"))
                     self._save_local_data()
-                    print(f"\nSynced user {self.username} with server successfully.")
                 else:
                     print(f"\nFailed to sync user {self.username} with server: {response.get('error')}")
             except Exception as e:
@@ -190,14 +186,13 @@ if __name__ == "__main__":
                 lists = client.get_lists()
                 print(f"\nCurrent Shopping Lists for {username}:\n")
                 for list_id, details in lists.items():
-                    if(details['deleted'] == False): # dont show deleted lists
+                    if(details['deleted'] == False): 
                         print(f"List ID: {list_id}, Name: {details['name']}\n")
-                        #print("\n\n\n", details, "\n\n\n")
                         for item in details["items"]:
                             str_item_bought = None
                             if(item['bought'] or item['product_quantity'] <= 0):
                                 str_item_bought = "✅"
-                                item['product_quantity'] = 0 # if the user updates quantity to a negative value
+                                item['product_quantity'] = 0 
                             else:
                                 str_item_bought = "❌"
                             print(f"  - {item['product_name']} (Quantity: {item['product_quantity']}) {str_item_bought}\n")
@@ -211,15 +206,13 @@ if __name__ == "__main__":
                 except ValueError as e:
                     print(f"Error: {e}")
 
-            elif choice == "8":  # Import List
+            elif choice == "8": 
                 list_id = input("Enter list ID to import: ")
                 try:
-                    # Send a request to the proxy to fetch the list by ID
                     response = client._send_request("getListById", {"list_id": list_id})
                     
                     if response.get("success"):
                         list_data = response.get("list")
-                        # Merge or store the fetched list locally
                         client.shopping_list.merge({list_id: list_data})
                         client._save_local_data()
                         print(f"Successfully imported list {list_id}.")

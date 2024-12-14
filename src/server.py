@@ -3,13 +3,12 @@ import zmq
 import json
 import os
 import threading
-from crdt.ShoppingList import ShoppingList  # Assuming you have a ShoppingList class
+from crdt.ShoppingList import ShoppingList  
 
 class Server:
     def __init__(self, port):
         self.port = port
-        self.shopping_list = ShoppingList(owner=port)  # Initialize ShoppingList
-        # Set a unique JSON file path based on the server's port number
+        self.shopping_list = ShoppingList(owner=port)  
         self.json_path = f"./data/lists_{self.port}.json"
         self.lock = threading.Lock()
         self.context = zmq.Context()
@@ -22,11 +21,10 @@ class Server:
         if os.path.exists(self.json_path):
             try:
                 with open(self.json_path, "r") as file:
-                    # Check if the file is empty
                     content = file.read().strip()
                     if content:
                         data = json.loads(content)
-                        self.shopping_list.merge(data)  # Merge data into the shopping list
+                        self.shopping_list.merge(data)  
                     else:
                         print(f"Warning: {self.json_path} is empty, initializing with empty data.")
             except json.JSONDecodeError:
@@ -39,7 +37,7 @@ class Server:
 
     def _save_data(self):
         """Save shopping list data to local storage if changes exist."""
-        if self.shopping_list.changed():  # Only save if there are changes
+        if self.shopping_list.changed():
             with open(self.json_path, "w") as file:
                 json.dump(self.shopping_list.info(), file, indent=4)
 
@@ -51,14 +49,11 @@ class Server:
             request = json.loads(message)
             action = request.get("action")
             data = request.get("data", {})
-            response = {"success": True}  # Default response structure
+            response = {"success": True} 
             
             if action == "syncLists":
-                # Merge incoming data (either from client or proxy) into the server's state
                 self.shopping_list.merge(data)
-                # Save the merged state to the server's persistent storage
                 self._save_data()
-                # Respond with the updated server state (the merged shopping list)
                 response["lists"] = self.shopping_list.info()
             elif action == "getListById":
                 list_id = data.get("list_id")
