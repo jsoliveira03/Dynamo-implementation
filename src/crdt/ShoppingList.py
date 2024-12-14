@@ -179,7 +179,7 @@ class ShoppingList:
                 "items": lst["items"].get_items()
             }
             for list_id, lst in self.lists.items()
-            if not lst["deleted"]
+            #if not lst["deleted"]
         }
 
     def changed(self):
