@@ -144,8 +144,8 @@ class ProxyServer:
 
     def start(self):
         """Main server loop with improved error handling."""
-        server_socket = self.context.socket(zmq.REP)
-        server_socket.bind(f"tcp://*:{self.port}")
+        server = self.context.socket(zmq.REP)
+        server.bind(f"tcp://*:{self.port}")
         print(f"Proxy Server running on port {self.port}")
         
         self.initialize_worker_sockets()
@@ -154,27 +154,94 @@ class ProxyServer:
         health_check_thread.daemon = True
         health_check_thread.start()
 
+        listt = []
+
         while self.running:
             try:
-                message = server_socket.recv_string()
+                message = server.recv_string()
+
                 parsed_message = json.loads(message)
+                action = parsed_message.get("action", "")
+                data = parsed_message.get("data", {})
                 response = {"success": False, "error": "Invalid action"}
 
-                if parsed_message.get("action") == "syncLists":
-                    processed_lists = {}
-                    for list_id, list_data in parsed_message.get("data", {}).items():
+                if action == "syncLists" and isinstance(data, dict):
+                    primary_ports = {}
+                    for list_id, list_data in data.items():
                         primary_port = self.hash_ring.get_server(list_id)
-                        replication_response = self.replicate_to_neighbors(message, primary_port)
+                        primary_ports[list_id] = primary_port
+
+                        response_data = self.replicate_to_neighbors(
+                            message, primary_port
+                        )
+
+                        processed_lists = response_data["lists"]
+                        print("List data")
+                        print(list_data)
+                        for resp_list_id, resp_list_data in processed_lists.items():
+                            if(list_id == resp_list_id):
+                                listt.append({resp_list_id: resp_list_data})
                         
-                        if replication_response and "lists" in replication_response:
-                            processed_lists.update(replication_response["lists"])
+                        if response_data:
+                            print(f"Successfully handled replication for list {list_id}")
+                        else:
+                            print(f"Failed to replicate list {list_id}")
 
+
+                    lists_dict = {}
+                    for d in listt:
+                        lists_dict.update(d)
+
+                    print("response dict")
+                    print(lists_dict)
                     response = {
-                        "success": bool(processed_lists),
-                        "lists": processed_lists
+                        "success": True,
+                        "lists": lists_dict
                     }
+                    
+                    server.send_string(json.dumps(response))
+                    listt = []
+                elif action == "getListById" and isinstance(data, dict):
+                    list_id = data.get("list_id")
+                    if list_id:
+                        primary_port = self.hash_ring.get_server(list_id)
+                        try:
+                            primary_socket = self.worker_sockets[primary_port]
+                            primary_request = {
+                                "action": "getListById",
+                                "data": {"list_id": list_id}
+                            }
+                            primary_socket.send_string(json.dumps(primary_request))
+                            response = primary_socket.recv_string()
+                            server_response = json.loads(response)
 
-                server_socket.send_string(json.dumps(response))
+                            if server_response.get("success"):
+                                server.send_string(json.dumps({
+                                    "success": True,
+                                    "list": server_response.get("list")
+                                }))
+                            else:
+                                server.send_string(json.dumps({
+                                    "success": False,
+                                    "error": "Failed to fetch list from server"
+                                }))
+                        except zmq.error.Again:
+                            server.send_string(json.dumps({
+                                "success": False,
+                                "error": f"Server {primary_port} is unavailable"
+                            }))
+                    else:
+                        server.send_string(json.dumps({
+                            "success": False,
+                            "error": "List ID is missing"
+                        }))
+
+                else:
+                    response = {"success": False, "error": "Invalid action or data format"}
+                    server.send_string(json.dumps(response))
+
+
+                server.send_string(json.dumps(response))
 
             except zmq.error.ZMQError as e:
                 print(f"ZMQ Error in main loop: {e}")
@@ -182,7 +249,7 @@ class ProxyServer:
             except Exception as e:
                 print(f"Unexpected error in main loop: {e}")
                 try:
-                    server_socket.send_string(json.dumps({
+                    server.send_string(json.dumps({
                         "success": False,
                         "error": str(e)
                     }))

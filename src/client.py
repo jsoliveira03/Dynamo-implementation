@@ -210,7 +210,19 @@ if __name__ == "__main__":
 
             elif choice == "8":
                 list_id = input("Enter list ID to import: ")
-                
+                try:
+                    response = client._send_request("getListById", {"list_id": list_id})
+                    
+                    if response.get("success"):
+                        list_data = response.get("list")
+                        client.shopping_list.merge({list_id: list_data})
+                        client._save_local_data()
+                        print(f"Successfully imported list {list_id}.")
+                    else:
+                        print(f"Failed to import list: {response.get('error')}")
+                except Exception as e:
+                    print(f"Error importing list: {e}")
+
 
 
             elif choice == "9":
