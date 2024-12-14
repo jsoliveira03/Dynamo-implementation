@@ -150,7 +150,8 @@ if __name__ == "__main__":
         print("5. Update Item Quantity")
         print("6. View Lists")
         print("7. Buy Item")
-        print("8. Exit")
+        print("8. Import List")
+        print("9. Exit")
 
         choice = input("Enter your choice: ")
         try:
@@ -211,6 +212,11 @@ if __name__ == "__main__":
                     print(f"Error: {e}")
 
             elif choice == "8":
+                list_id = input("Enter list ID to import: ")
+                
+
+
+            elif choice == "9":
                 print(f"Goodbye, {username}!")
                 client.shutdown()
                 break
