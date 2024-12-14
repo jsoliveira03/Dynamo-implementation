@@ -1,12 +1,12 @@
 {
-    "6c974a77-bb09-4b74-8437-057dfbe0e0f9": {
-        "name": "hello",
+    "4380fb83-fb51-4445-870a-80d962d22e60": {
+        "name": "test",
         "deleted": false,
         "items": [
             {
-                "uuid": "9342416e-0f0c-4256-88f8-888415aad0f4",
-                "product_name": "banana",
-                "product_quantity": 6,
+                "uuid": "69a8efa7-851f-49ee-926d-8dba7f6b4d92",
+                "product_name": "arroz",
+                "product_quantity": 3,
                 "deleted": false,
                 "bought": false,
                 "timestamp": 1

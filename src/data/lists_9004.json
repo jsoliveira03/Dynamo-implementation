@@ -1,24 +1,10 @@
 {
-    "2a365261-71da-41d7-a522-4cb338c62e2a": {
-        "name": "test",
-        "deleted": false,
-        "items": [
-            {
-                "uuid": "8de06230-0b34-4341-845b-a895888139d7",
-                "product_name": "arroz",
-                "product_quantity": 2,
-                "deleted": false,
-                "bought": false,
-                "timestamp": 1
-            }
-        ]
-    },
-    "2386c5b4-0648-4482-8fae-d419c1c6670a": {
+    "5c90795c-fc51-4c8d-a7fd-cb23ad63ee08": {
         "name": "hello",
         "deleted": false,
         "items": [
             {
-                "uuid": "d9e34bcb-7f18-40ab-a29e-d6c67ad8a2f2",
+                "uuid": "38565036-5d27-404a-93a9-8ae56bbec254",
                 "product_name": "banana",
                 "product_quantity": 5,
                 "deleted": false,
@@ -27,33 +13,18 @@
             }
         ]
     },
-    "7238ad86-ed81-4e4b-8607-ec84466327c1": {
-        "name": "fmern",
+    "4380fb83-fb51-4445-870a-80d962d22e60": {
+        "name": "test",
         "deleted": false,
         "items": [
             {
-                "uuid": "ef670a41-5830-4098-b6cd-5c4df9d7495c",
-                "product_name": "a",
-                "product_quantity": 1,
+                "uuid": "69a8efa7-851f-49ee-926d-8dba7f6b4d92",
+                "product_name": "arroz",
+                "product_quantity": 3,
                 "deleted": false,
                 "bought": false,
                 "timestamp": 1
             }
         ]
-    },
-    "89e62120-5ad5-4a7b-aadc-ead170430262": {
-        "name": "aa",
-        "deleted": false,
-        "items": []
-    },
-    "135c5577-7c34-4640-8530-f94e26957167": {
-        "name": "b",
-        "deleted": false,
-        "items": []
-    },
-    "6209bd2d-2355-4fe3-8256-98530ebd679b": {
-        "name": "teste2",
-        "deleted": false,
-        "items": []
     }
 }

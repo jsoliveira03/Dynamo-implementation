@@ -1,16 +1,21 @@
 {
-    "0761bb20-8ebb-41e7-a75c-1c3629e3701f": {
-        "name": "test",
+    "5c90795c-fc51-4c8d-a7fd-cb23ad63ee08": {
+        "name": "hello",
         "deleted": false,
         "items": [
             {
-                "uuid": "e6ba0503-b9c2-4de8-8c3d-fff102c8f9dc",
-                "product_name": "arroz",
-                "product_quantity": 6,
+                "uuid": "38565036-5d27-404a-93a9-8ae56bbec254",
+                "product_name": "banana",
+                "product_quantity": 5,
                 "deleted": false,
                 "bought": false,
                 "timestamp": 1
             }
         ]
+    },
+    "4380fb83-fb51-4445-870a-80d962d22e60": {
+        "name": "test",
+        "deleted": false,
+        "items": []
     }
 }
