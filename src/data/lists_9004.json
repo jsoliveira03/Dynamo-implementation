@@ -1,29 +1,30 @@
 {
-    "09f013a3-f669-40c8-8d20-ad664ca1c9ca": {
-        "name": "aa",
+    "2a365261-71da-41d7-a522-4cb338c62e2a": {
+        "name": "test",
         "deleted": false,
         "items": [
             {
-                "uuid": "ea577001-ce5e-40a5-9ac7-4ad6252b444a",
-                "product_name": "laranja",
-                "product_quantity": 10,
+                "uuid": "8de06230-0b34-4341-845b-a895888139d7",
+                "product_name": "arroz",
+                "product_quantity": 2,
                 "deleted": false,
                 "bought": false,
                 "timestamp": 1
-            },
-            {
-                "uuid": "32f0bc9e-436a-4c14-a1d4-ab4fbecb249e",
-                "product_name": "banaan",
-                "product_quantity": 0,
-                "deleted": false,
-                "bought": true,
-                "timestamp": 3
             }
         ]
     },
-    "4c00736a-ca75-42de-bc81-da685a58a15c": {
-        "name": "bb",
-        "deleted": true,
-        "items": []
+    "2386c5b4-0648-4482-8fae-d419c1c6670a": {
+        "name": "hello",
+        "deleted": false,
+        "items": [
+            {
+                "uuid": "d9e34bcb-7f18-40ab-a29e-d6c67ad8a2f2",
+                "product_name": "banana",
+                "product_quantity": 5,
+                "deleted": false,
+                "bought": false,
+                "timestamp": 1
+            }
+        ]
     }
 }
