@@ -132,9 +132,12 @@ class ProxyServer:
 
                         # Append the response_data for each list
                         processed_lists = response_data["lists"]
+                        print("List data")
+                        print(list_data)
                         for resp_list_id, resp_list_data in processed_lists.items():
-                            listt.append({resp_list_id: resp_list_data})
-
+                            if(list_id == resp_list_id):
+                                listt.append({resp_list_id: resp_list_data})
+                                
 
                         # Log the response or handle failures
                         if response_data:
@@ -146,6 +149,8 @@ class ProxyServer:
                     for d in listt:
                         lists_dict.update(d)
 
+                    print("response dict")
+                    print(lists_dict)
                     response = {
                         "success": True,
                         "lists": lists_dict
