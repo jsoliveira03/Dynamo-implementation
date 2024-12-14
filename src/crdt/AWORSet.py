@@ -4,7 +4,7 @@ from crdt.PN_Counter import PNCounter
 class AWORSet:
     def __init__(self, owner):
         self.owner = owner
-        self.items = {}
+        self.items = {}  
         self.adds = {}
         self.removes = {}
         self.bought = {}
@@ -37,9 +37,9 @@ class AWORSet:
     def add(self, product_name, quantity, product_uuid=None, deleted=False, bought=False, timestamp=None):
         """Add a product to the set."""
         if product_uuid is None:
-            product_uuid = str(uuid.uuid4())
+            product_uuid = str(uuid.uuid4())  
         if timestamp is None:
-            timestamp = self._get_next_timestamp()
+            timestamp = self._get_next_timestamp()  
 
         if product_uuid not in self.removes or timestamp > self.removes[product_uuid].get('timestamp', 0):
             if product_uuid not in self.items:

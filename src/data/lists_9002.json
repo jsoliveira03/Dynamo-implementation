@@ -1,59 +1,30 @@
 {
-    "2a365261-71da-41d7-a522-4cb338c62e2a": {
-        "name": "test",
-        "deleted": false,
-        "items": [
-            {
-                "uuid": "8de06230-0b34-4341-845b-a895888139d7",
-                "product_name": "arroz",
-                "product_quantity": 2,
-                "deleted": false,
-                "bought": false,
-                "timestamp": 1
-            }
-        ]
-    },
-    "7238ad86-ed81-4e4b-8607-ec84466327c1": {
-        "name": "fmern",
-        "deleted": false,
-        "items": [
-            {
-                "uuid": "ef670a41-5830-4098-b6cd-5c4df9d7495c",
-                "product_name": "a",
-                "product_quantity": 1,
-                "deleted": false,
-                "bought": false,
-                "timestamp": 1
-            }
-        ]
-    },
-    "2386c5b4-0648-4482-8fae-d419c1c6670a": {
+    "6c974a77-bb09-4b74-8437-057dfbe0e0f9": {
         "name": "hello",
         "deleted": false,
         "items": [
             {
-                "uuid": "d9e34bcb-7f18-40ab-a29e-d6c67ad8a2f2",
+                "uuid": "9342416e-0f0c-4256-88f8-888415aad0f4",
                 "product_name": "banana",
-                "product_quantity": 5,
+                "product_quantity": 6,
                 "deleted": false,
                 "bought": false,
                 "timestamp": 1
             }
         ]
     },
-    "89e62120-5ad5-4a7b-aadc-ead170430262": {
-        "name": "aa",
+    "0761bb20-8ebb-41e7-a75c-1c3629e3701f": {
+        "name": "test",
         "deleted": false,
-        "items": []
-    },
-    "135c5577-7c34-4640-8530-f94e26957167": {
-        "name": "b",
-        "deleted": false,
-        "items": []
-    },
-    "6209bd2d-2355-4fe3-8256-98530ebd679b": {
-        "name": "teste2",
-        "deleted": false,
-        "items": []
+        "items": [
+            {
+                "uuid": "e6ba0503-b9c2-4de8-8c3d-fff102c8f9dc",
+                "product_name": "arroz",
+                "product_quantity": 6,
+                "deleted": false,
+                "bought": false,
+                "timestamp": 1
+            }
+        ]
     }
 }

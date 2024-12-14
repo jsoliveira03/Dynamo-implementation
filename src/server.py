@@ -3,12 +3,12 @@ import zmq
 import json
 import os
 import threading
-from crdt.ShoppingList import ShoppingList
+from crdt.ShoppingList import ShoppingList  
 
 class Server:
     def __init__(self, port):
         self.port = port
-        self.shopping_list = ShoppingList(owner=port)
+        self.shopping_list = ShoppingList(owner=port)  
         self.json_path = f"./data/lists_{self.port}.json"
         self.lock = threading.Lock()
         self.context = zmq.Context()
@@ -21,11 +21,10 @@ class Server:
         if os.path.exists(self.json_path):
             try:
                 with open(self.json_path, "r") as file:
-                    # Check if the file is empty
                     content = file.read().strip()
                     if content:
                         data = json.loads(content)
-                        self.shopping_list.merge(data)
+                        self.shopping_list.merge(data)  
                     else:
                         print(f"Warning: {self.json_path} is empty, initializing with empty data.")
             except json.JSONDecodeError:
