@@ -189,16 +189,17 @@ if __name__ == "__main__":
                 lists = client.get_lists()
                 print(f"\nCurrent Shopping Lists for {username}:\n")
                 for list_id, details in lists.items():
-                    print(f"List ID: {list_id}, Name: {details['name']}\n")
-                    #print("\n\n\n", details, "\n\n\n")
-                    for item in details["items"]:
-                        str_item_bought = None
-                        if(item['bought'] or item['product_quantity'] <= 0):
-                            str_item_bought = "✅"
-                            item['product_quantity'] = 0 # if the user updates quantity to a negative value
-                        else:
-                            str_item_bought = "❌"
-                        print(f"  - {item['product_name']} (Quantity: {item['product_quantity']}) {str_item_bought}\n")
+                    if(details['deleted'] == False): # dont show deleted lists
+                        print(f"List ID: {list_id}, Name: {details['name']}\n")
+                        #print("\n\n\n", details, "\n\n\n")
+                        for item in details["items"]:
+                            str_item_bought = None
+                            if(item['bought'] or item['product_quantity'] <= 0):
+                                str_item_bought = "✅"
+                                item['product_quantity'] = 0 # if the user updates quantity to a negative value
+                            else:
+                                str_item_bought = "❌"
+                            print(f"  - {item['product_name']} (Quantity: {item['product_quantity']}) {str_item_bought}\n")
             
             elif choice == "7":
                 list_id = input("Enter list ID: ")

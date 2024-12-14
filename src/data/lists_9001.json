@@ -1,21 +1,29 @@
 {
-    "8375e350-3e98-4523-b324-7cb35cb1aa1d": {
+    "09f013a3-f669-40c8-8d20-ad664ca1c9ca": {
         "name": "aa",
         "deleted": false,
         "items": [
             {
-                "uuid": "4b5eed5b-c9a0-4f5f-a04d-f70ca0d27643",
-                "product_name": "a",
-                "product_quantity": 1,
+                "uuid": "ea577001-ce5e-40a5-9ac7-4ad6252b444a",
+                "product_name": "laranja",
+                "product_quantity": 10,
                 "deleted": false,
                 "bought": false,
                 "timestamp": 1
+            },
+            {
+                "uuid": "32f0bc9e-436a-4c14-a1d4-ab4fbecb249e",
+                "product_name": "banaan",
+                "product_quantity": 0,
+                "deleted": false,
+                "bought": true,
+                "timestamp": 3
             }
         ]
     },
-    "53a37a2e-8653-4d90-9c66-0cd91b2568dd": {
-        "name": "b",
-        "deleted": false,
+    "4c00736a-ca75-42de-bc81-da685a58a15c": {
+        "name": "bb",
+        "deleted": true,
         "items": []
     }
 }
