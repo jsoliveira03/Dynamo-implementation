@@ -175,15 +175,12 @@ class ProxyServer:
                             message, primary_port
                         )
 
-                        processed_lists = response_data["lists"]
-                        print("List data")
-                        print(list_data)
-                        for resp_list_id, resp_list_data in processed_lists.items():
-                            if(list_id == resp_list_id):
-                                listt.append({resp_list_id: resp_list_data})
-                        
                         if response_data:
-                            print(f"Successfully handled replication for list {list_id}")
+                            processed_lists = response_data["lists"]
+                            for resp_list_id, resp_list_data in processed_lists.items():
+                                if(list_id == resp_list_id):
+                                    listt.append({resp_list_id: resp_list_data})
+                            #print(f"Successfully handled replication for list {list_id}")
                         else:
                             print(f"Failed to replicate list {list_id}")
 
@@ -192,14 +189,13 @@ class ProxyServer:
                     for d in listt:
                         lists_dict.update(d)
 
-                    print("response dict")
-                    print(lists_dict)
+                    # print("response dict")
+                    # print(lists_dict)
                     response = {
                         "success": True,
                         "lists": lists_dict
                     }
                     
-                    server.send_string(json.dumps(response))
                     listt = []
                 elif action == "getListById" and isinstance(data, dict):
                     list_id = data.get("list_id")
@@ -212,40 +208,34 @@ class ProxyServer:
                                 "data": {"list_id": list_id}
                             }
                             primary_socket.send_string(json.dumps(primary_request))
-                            response = primary_socket.recv_string()
-                            server_response = json.loads(response)
+                            response = json.loads(primary_socket.recv_string())
 
-                            if server_response.get("success"):
-                                server.send_string(json.dumps({
+                            if response.get("success"):
+                                response = {
                                     "success": True,
-                                    "list": server_response.get("list")
-                                }))
+                                    "list": response.get("list")
+                                }
                             else:
-                                server.send_string(json.dumps({
+                                response = {
                                     "success": False,
                                     "error": "Failed to fetch list from server"
-                                }))
+                                }
                         except zmq.error.Again:
-                            server.send_string(json.dumps({
+                            response = {
                                 "success": False,
                                 "error": f"Server {primary_port} is unavailable"
-                            }))
+                            }
                     else:
-                        server.send_string(json.dumps({
+                        response = {
                             "success": False,
                             "error": "List ID is missing"
-                        }))
-
-                else:
-                    response = {"success": False, "error": "Invalid action or data format"}
-                    server.send_string(json.dumps(response))
-
+                        }
 
                 server.send_string(json.dumps(response))
 
-            except zmq.error.ZMQError as e:
-                print(f"ZMQ Error in main loop: {e}")
-                continue
+            # except zmq.error.ZMQError as e:
+            #     print(f"ZMQ Error in main loop: {e}")
+            #     continue
             except Exception as e:
                 print(f"Unexpected error in main loop: {e}")
                 try:
